@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check-in EBF</title>
+<style>
+:root{
+  --azul-noite:#1E3A5F;
+  --azul-medio:#2C5F8A;
+  --areia:#F7F3EC;
+  --branco:#FFFFFF;
+  --verde-ok:#2E8B57;
+  --vermelho-alerta:#C13B3B;
+  --cinza:#6B7280;
+  --cinza-claro:#E5E7EB;
+  --texto:#1F2937;
+  --raio:10px;
+  --sombra:0 2px 10px rgba(30,58,95,0.10);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--areia);
+  color:var(--texto);
+}
+header{
+  background:var(--azul-noite);
+  color:var(--branco);
+  padding:14px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+}
+header h1{font-size:18px;margin:0;font-weight:700;}
+header .status{font-size:12px;opacity:.85;}
+nav{
+  display:flex;
+  gap:4px;
+  background:var(--azul-medio);
+  padding:0 12px;
+  overflow-x:auto;
+}
+nav button{
+  background:none;border:none;color:#DCE8F5;
+  padding:12px 16px;font-size:14px;cursor:pointer;
+  border-bottom:3px solid transparent;white-space:nowrap;
+}
+nav button.active{color:#fff;border-bottom-color:#F2A93B;font-weight:600;}
+main{max-width:1000px;margin:0 auto;padding:18px;}
+.card{
+  background:var(--branco);
+  border-radius:var(--raio);
+  box-shadow:var(--sombra);
+  padding:18px;
+  margin-bottom:16px;
+}
+.hidden{display:none !important;}
+label{display:block;font-size:13px;font-weight:600;color:var(--cinza);margin:10px 0 4px;}
+input,select,textarea{
+  width:100%;padding:11px 12px;border:1px solid var(--cinza-claro);
+  border-radius:8px;font-size:15px;font-family:inherit;background:#fff;
+}
+textarea{resize:vertical;min-height:60px;}
+button.primary{
+  background:var(--azul-noite);color:#fff;border:none;
+  padding:12px 20px;border-radius:8px;font-size:15px;font-weight:600;
+  cursor:pointer;margin-top:12px;
+}
+button.primary:hover{background:var(--azul-medio);}
+button.secondary{
+  background:#fff;color:var(--azul-noite);border:1px solid var(--azul-noite);
+  padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;
+}
+button.danger{background:var(--vermelho-alerta);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+.row{display:flex;gap:12px;flex-wrap:wrap;}
+.row > *{flex:1;min-width:180px;}
+.day-selector{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.day-btn{
+  padding:10px 16px;border-radius:20px;border:2px solid var(--azul-medio);
+  background:#fff;color:var(--azul-medio);font-weight:600;cursor:pointer;font-size:14px;
+}
+.day-btn.active{background:var(--azul-medio);color:#fff;}
+.search-results{margin-top:8px;max-height:280px;overflow-y:auto;border-radius:8px;}
+.search-item{
+  padding:12px;border-bottom:1px solid var(--cinza-claro);cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.search-item:hover{background:var(--areia);}
+.badge{
+  display:inline-block;padding:4px 12px;border-radius:20px;color:#fff;font-size:12px;font-weight:700;
+}
+.numero-grande{font-size:42px;font-weight:800;color:var(--azul-noite);line-height:1;}
+.selected-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px;}
+.alerta-box{
+  background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;
+  padding:10px 14px;border-radius:8px;font-size:14px;margin:10px 0;font-weight:600;
+}
+.ok-box{
+  background:#F0FDF4;border:1px solid #86EFAC;color:#166534;
+  padding:10px 14px;border-radius:8px;font-size:14px;margin:10px 0;
+}
+.info-line{font-size:14px;color:var(--cinza);margin:2px 0;}
+.info-line b{color:var(--texto);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--cinza-claro);}
+th{background:var(--areia);position:sticky;top:0;}
+.table-wrap{overflow-x:auto;max-height:520px;overflow-y:auto;border-radius:8px;border:1px solid var(--cinza-claro);}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+.stat-card{flex:1;min-width:130px;background:#fff;border-radius:10px;padding:14px;box-shadow:var(--sombra);text-align:center;}
+.stat-card .num{font-size:26px;font-weight:800;color:var(--azul-noite);}
+.stat-card .lbl{font-size:12px;color:var(--cinza);}
+.presenca-dot{display:inline-block;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;color:#fff;font-weight:700;}
+.pd-sim{background:var(--verde-ok);}
+.pd-nao{background:var(--cinza-claro);color:var(--cinza);}
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:var(--azul-noite);color:#fff;padding:12px 22px;border-radius:8px;
+  font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:999;
+}
+.small-note{font-size:12px;color:var(--cinza);margin-top:6px;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+@media(max-width:600px){
+  .numero-grande{font-size:32px;}
+  header h1{font-size:16px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧒 Check-in — Escola Bíblica de Férias</h1>
+  <div class="status" id="connStatus">verificando conexão…</div>
+</header>
+
+<nav id="mainNav">
+  <button data-tab="checkin" class="active">Check-in</button>
+  <button data-tab="cadastro">Cadastrar</button>
+  <button data-tab="importar">Importar Lista</button>
+  <button data-tab="admin">Painel Admin</button>
+  <button data-tab="config">Configurações</button>
+</nav>
+
+<main>
+
+<!-- ===================== TAB: CHECK-IN ===================== -->
+<section id="tab-checkin" class="card">
+  <div class="day-selector" id="daySelector"></div>
+
+  <label>Buscar criança pelo nome</label>
+  <input type="text" id="searchInput" placeholder="Digite o nome da criança…" autocomplete="off">
+  <div class="search-results" id="searchResults"></div>
+
+  <div id="selectedChildBox" class="hidden" style="margin-top:16px;border-top:1px solid var(--cinza-claro);padding-top:16px;">
+    <div class="selected-header">
+      <div class="numero-grande" id="selNumero">#000</div>
+      <span class="badge" id="selCorBadge">cor</span>
+    </div>
+    <div style="font-size:20px;font-weight:700;" id="selNome">Nome</div>
+    <div class="info-line">Idade: <b id="selIdade">-</b></div>
+    <div id="selAlergiaBox"></div>
+
+    <div id="dia1Fields">
+      <label>Nome do responsável</label>
+      <input type="text" id="selResponsavel">
+      <label>Telefone do responsável</label>
+      <input type="text" id="selTelefone">
+    </div>
+    <div id="diaOutroFields" class="hidden">
+      <div class="info-line">Responsável: <b id="selResponsavelView"></b></div>
+      <div class="info-line">Telefone: <b id="selTelefoneView"></b></div>
+    </div>
+
+    <label>Observação (opcional)</label>
+    <textarea id="selObservacao" placeholder="Ex: saiu mais cedo, criança acompanhada por tio, etc."></textarea>
+
+    <div id="presencaStatus"></div>
+    <button class="primary" id="btnConfirmarPresenca">Confirmar presença</button>
+  </div>
+</section>
+
+<!-- ===================== TAB: CADASTRO ===================== -->
+<section id="tab-cadastro" class="card hidden">
+  <h2 style="margin-top:0;">Cadastrar nova criança</h2>
+  <div class="row">
+    <div>
+      <label>Nome completo *</label>
+      <input type="text" id="cNome">
+    </div>
+    <div>
+      <label>Data de nascimento</label>
+      <input type="date" id="cNascimento">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>CPF</label>
+      <input type="text" id="cCpf" placeholder="000.000.000-00">
+    </div>
+    <div>
+      <label>Cor da equipe *</label>
+      <select id="cCor"></select>
+    </div>
+  </div>
+  <label>Alergia / restrição alimentar / condição de saúde</label>
+  <input type="text" id="cAlergia" placeholder="Deixe em branco se não houver">
+  <div class="row">
+    <div>
+      <label>Nome do responsável *</label>
+      <input type="text" id="cResponsavel">
+    </div>
+    <div>
+      <label>Telefone do responsável *</label>
+      <input type="text" id="cTelefone">
+    </div>
+  </div>
+  <label>Observações</label>
+  <textarea id="cObs"></textarea>
+  <button class="primary" id="btnCadastrar">Cadastrar criança</button>
+  <div id="cadastroResultado"></div>
+</section>
+
+<!-- ===================== TAB: IMPORTAR ===================== -->
+<section id="tab-importar" class="card hidden">
+  <h2 style="margin-top:0;">Importar lista (CSV)</h2>
+  <p class="small-note">
+    O CSV deve ter cabeçalho com estas colunas (nesta ordem), separadas por vírgula ou ponto-e-vírgula:<br>
+    <code>nomeCompleto,cpf,dataNascimento,alergiaRestricao,nomeResponsavel,telefoneResponsavel,corEquipe,observacoes</code><br>
+    dataNascimento no formato AAAA-MM-DD. Os campos cpf, alergiaRestricao e observacoes podem ficar vazios.
+  </p>
+  <input type="file" id="csvFile" accept=".csv">
+  <div class="small-note">ou cole o conteúdo do CSV abaixo:</div>
+  <textarea id="csvPaste" placeholder="nomeCompleto,cpf,dataNascimento,alergiaRestricao,nomeResponsavel,telefoneResponsavel,corEquipe,observacoes" style="min-height:140px;"></textarea>
+  <button class="secondary" id="btnPreview">Pré-visualizar</button>
+  <div id="csvPreview"></div>
+  <button class="primary hidden" id="btnImportar">Confirmar importação</button>
+</section>
+
+<!-- ===================== TAB: ADMIN ===================== -->
+<section id="tab-admin" class="card hidden">
+  <h2 style="margin-top:0;">Painel do administrador</h2>
+  <div class="stats" id="adminStats"></div>
+  <div class="row">
+    <input type="text" id="adminSearch" placeholder="Buscar por nome, número, responsável…">
+    <select id="adminDayFilter">
+      <option value="">Todos os dias</option>
+      <option value="dia1">Presentes — 21/07</option>
+      <option value="dia2">Presentes — 22/07</option>
+      <option value="dia3">Presentes — 23/07</option>
+      <option value="dia4">Presentes — 24/07</option>
+      <option value="dia5">Presentes — 25/07</option>
+    </select>
+    <select id="adminCorFilter"><option value="">Todas as cores</option></select>
+  </div>
+  <div class="flex-between" style="margin:10px 0;">
+    <button class="secondary" id="btnRefreshAdmin">🔄 Atualizar</button>
+    <button class="secondary" id="btnExportCsv">⬇️ Exportar CSV</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Nome</th><th>Idade</th><th>Cor</th>
+          <th id="thD1">21/07</th><th id="thD2">22/07</th><th id="thD3">23/07</th><th id="thD4">24/07</th><th id="thD5">25/07</th>
+          <th>Responsável</th><th>Telefone</th><th>Alergia</th><th>Obs.</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== TAB: CONFIG ===================== -->
+<section id="tab-config" class="card hidden">
+  <h2 style="margin-top:0;">Configurações</h2>
+  <label>URL do Worker (Cloudflare)</label>
+  <input type="text" id="cfgWorkerUrl" placeholder="https://checkin-ebf.SEUUSUARIO.workers.dev">
+  <label>Código de acesso</label>
+  <input type="text" id="cfgAccessCode" placeholder="senha combinada com a equipe">
+  <label>Seu nome (aparece como "confirmado por" nos registros)</label>
+  <input type="text" id="cfgOperador" placeholder="Ex: Maria - Recepção">
+  <button class="primary" id="btnSalvarConfig">Salvar</button>
+  <button class="secondary" id="btnTestarConexao">Testar conexão</button>
+  <div id="testeResultado"></div>
+
+  <h3>Cores das equipes</h3>
+  <div id="listaCores"></div>
+  <div class="row">
+    <input type="text" id="novaCorNome" placeholder="Nome da cor (ex: Vermelho)">
+    <input type="color" id="novaCorHex" value="#C13B3B" style="max-width:60px;">
+    <button class="secondary" id="btnAddCor">Adicionar</button>
+  </div>
+
+  <h3>Atribuição de cor por idade <span style="font-weight:400;font-size:13px;color:var(--cinza);">(opcional)</span></h3>
+  <p class="small-note">Defina as faixas de idade de cada equipe. Ao cadastrar ou importar uma criança sem cor definida, o sistema sugere a cor automaticamente com base na idade calculada pela data de nascimento. Você pode sempre trocar manualmente.</p>
+  <div id="listaFaixas"></div>
+  <div class="row">
+    <input type="number" id="faixaMin" placeholder="Idade mínima" min="0">
+    <input type="number" id="faixaMax" placeholder="Idade máxima" min="0">
+    <select id="faixaCor"></select>
+    <button class="secondary" id="btnAddFaixa">Adicionar faixa</button>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ============================================================
+// ESTADO E CONFIGURAÇÃO
+// ============================================================
+const DIAS = [1,2,3,4,5];
+const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07']; // ajuste aqui se as datas mudarem
+let CONFIG = JSON.parse(localStorage.getItem('ebf_config') || '{}');
+let coresConfig = { cores: [
+  {nome:'Vermelho', hex:'#C13B3B'}, {nome:'Verde', hex:'#2E8B57'},
+  {nome:'Azul', hex:'#2C5F8A'}, {nome:'Amarelo', hex:'#D8A227'},
+  {nome:'Cinza', hex:'#6B7280'}, {nome:'Branco', hex:'#FFFFFF'}
+], faixas: [] }; // faixas: [{min:0,max:5,cor:'Amarelo'}, ...] — configurável na aba Configurações
+
+function corTextColor(hex){
+  const c = (hex||'#6B7280').replace('#','');
+  const r=parseInt(c.substr(0,2),16)||0, g=parseInt(c.substr(2,2),16)||0, b=parseInt(c.substr(4,2),16)||0;
+  const lum = (0.299*r+0.587*g+0.114*b)/255;
+  return lum>0.65 ? '#1F2937' : '#FFFFFF';
+}
+function badgeStyle(nomeCor){
+  const hex = corHex(nomeCor);
+  const borda = hex.toUpperCase()==='#FFFFFF' ? ';border:1px solid #C9C9C9' : '';
+  return `background:${hex};color:${corTextColor(hex)}${borda}`;
+}
+function sugerirCorPorIdade(idade){
+  if(idade==null || !coresConfig.faixas || !coresConfig.faixas.length) return null;
+  const f = coresConfig.faixas.find(f=> idade>=Number(f.min) && idade<=Number(f.max));
+  return f ? f.cor : null;
+}
+let indexCache = [];
+let diaAtual = 1;
+let criancaSelecionada = null;
+
+function workerUrl(){ return (CONFIG.workerUrl||'').replace(/\/$/,''); }
+
+async function apiCall(path, method='GET', body=null){
+  const res = await fetch(workerUrl()+path, {
+    method,
+    headers:{ 'Content-Type':'application/json', 'X-Access-Code': CONFIG.accessCode||'' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if(!res.ok){
+    const err = await res.json().catch(()=>({error:'Erro desconhecido'}));
+    throw new Error(err.error || ('Erro HTTP '+res.status));
+  }
+  return res.json();
+}
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2800);
+}
+
+function calcIdade(dataNasc){
+  if(!dataNasc) return '-';
+  const n = new Date(dataNasc+'T00:00:00');
+  if(isNaN(n)) return '-';
+  const h = new Date();
+  let idade = h.getFullYear()-n.getFullYear();
+  const m = h.getMonth()-n.getMonth();
+  if(m<0 || (m===0 && h.getDate()<n.getDate())) idade--;
+  return idade;
+}
+
+function corHex(nomeCor){
+  const c = coresConfig.cores.find(c=>c.nome===nomeCor);
+  return c ? c.hex : '#6B7280';
+}
+
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+document.getElementById('mainNav').addEventListener('click', (e)=>{
+  if(e.target.tagName!=='BUTTON') return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  e.target.classList.add('active');
+  document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');
+  if(e.target.dataset.tab==='admin') carregarAdmin();
+});
+
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
+async function init(){
+  document.getElementById('cfgWorkerUrl').value = CONFIG.workerUrl || '';
+  document.getElementById('cfgAccessCode').value = CONFIG.accessCode || '';
+  document.getElementById('cfgOperador').value = CONFIG.operador || '';
+
+  montarSeletorDias();
+  DIAS.forEach((d,i)=>{
+    const th = document.getElementById('thD'+d);
+    if(th) th.textContent = DATAS_EVENTO[i];
+    const opt = document.querySelector(`#adminDayFilter option[value="dia${d}"]`);
+    if(opt) opt.textContent = 'Presentes — '+DATAS_EVENTO[i];
+  });
+
+  if(!CONFIG.workerUrl || !CONFIG.accessCode){
+    document.getElementById('connStatus').textContent = '⚠️ configure o Worker na aba Configurações';
+    document.querySelectorAll('nav button').forEach(b=>{ if(b.dataset.tab!=='config') b.disabled=true; b.style.opacity=.4; });
+    document.querySelector('nav button[data-tab="config"]').click();
+    return;
+  }
+
+  try{
+    coresConfig = await apiCall('/config');
+    if(!coresConfig.cores || !coresConfig.cores.length){
+      coresConfig = { cores: [
+        {nome:'Vermelho', hex:'#C13B3B'}, {nome:'Azul', hex:'#2C5F8A'},
+        {nome:'Verde', hex:'#2E8B57'}, {nome:'Amarelo', hex:'#D8A227'},
+        {nome:'Roxo', hex:'#7C4DA8'}, {nome:'Laranja', hex:'#E07A2D'}
+      ]};
+    }
+    // compat: config antiga pode ter só nomes (string)
+    coresConfig.cores = coresConfig.cores.map(c => typeof c==='string' ? {nome:c, hex:'#6B7280'} : c);
+    if(!coresConfig.faixas) coresConfig.faixas = [];
+
+    indexCache = await apiCall('/index');
+    document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
+    preencherSelectCores();
+    renderListaCores();
+    renderFiltroCor();
+    preencherSelectFaixaCor();
+    renderListaFaixas();
+  }catch(e){
+    document.getElementById('connStatus').textContent = '❌ falha na conexão: '+e.message;
+  }
+}
+
+function montarSeletorDias(){
+  const el = document.getElementById('daySelector');
+  el.innerHTML='';
+  DIAS.forEach(d=>{
+    const b = document.createElement('button');
+    b.className='day-btn'+(d===diaAtual?' active':'');
+    b.textContent=DATAS_EVENTO[d-1] || ('Dia '+d);
+    b.onclick=()=>{ diaAtual=d; montarSeletorDias(); if(criancaSelecionada) selecionarCrianca(criancaSelecionada.id); };
+    el.appendChild(b);
+  });
+}
+
+function preencherSelectCores(){
+  const sel = document.getElementById('cCor');
+  sel.innerHTML = coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+}
+
+// ============================================================
+// CHECK-IN — BUSCA
+// ============================================================
+document.getElementById('searchInput').addEventListener('input', (e)=>{
+  const termo = e.target.value.trim().toLowerCase();
+  const box = document.getElementById('searchResults');
+  if(termo.length<2){ box.innerHTML=''; return; }
+  const resultados = indexCache.filter(c=>c.nomeCompleto.toLowerCase().includes(termo)).slice(0,15);
+  box.innerHTML = resultados.map(c=>`
+    <div class="search-item" data-id="${c.id}">
+      <span><b>#${c.numero}</b> — ${c.nomeCompleto}</span>
+      <span class="badge" style="${badgeStyle(c.corEquipe)}">${c.corEquipe||'-'}</span>
+    </div>`).join('') || '<div class="small-note" style="padding:10px;">Nenhuma criança encontrada</div>';
+  box.querySelectorAll('.search-item').forEach(item=>{
+    item.onclick = ()=> selecionarCrianca(item.dataset.id);
+  });
+});
+
+async function selecionarCrianca(id){
+  try{
+    const c = await apiCall('/child?id='+id);
+    criancaSelecionada = c;
+    document.getElementById('selectedChildBox').classList.remove('hidden');
+    document.getElementById('selNumero').textContent = '#'+c.numero;
+    document.getElementById('selCorBadge').textContent = c.corEquipe || '-';
+    document.getElementById('selCorBadge').style.cssText = badgeStyle(c.corEquipe);
+    document.getElementById('selNome').textContent = c.nomeCompleto;
+    document.getElementById('selIdade').textContent = calcIdade(c.dataNascimento)+' anos';
+
+    const alergiaBox = document.getElementById('selAlergiaBox');
+    alergiaBox.innerHTML = c.alergiaRestricao
+      ? `<div class="alerta-box">⚠️ Alergia/restrição: ${c.alergiaRestricao}</div>` : '';
+
+    const chaveDia = 'dia'+diaAtual;
+    const jaConfirmado = c.presencas && c.presencas[chaveDia] && c.presencas[chaveDia].presente;
+    // "primeira vez" = a criança ainda não tem nenhuma presença confirmada em nenhum dia
+    // (não depende de qual dia está selecionado — cobre quem chega faltando um ou mais dias)
+    const primeiraVez = !c.presencas || !Object.values(c.presencas).some(p=>p && p.presente);
+
+    if(primeiraVez){
+      document.getElementById('dia1Fields').classList.remove('hidden');
+      document.getElementById('diaOutroFields').classList.add('hidden');
+      document.getElementById('selResponsavel').value = c.nomeResponsavel||'';
+      document.getElementById('selTelefone').value = c.telefoneResponsavel||'';
+    }else{
+      document.getElementById('dia1Fields').classList.add('hidden');
+      document.getElementById('diaOutroFields').classList.remove('hidden');
+      document.getElementById('selResponsavelView').textContent = c.nomeResponsavel||'-';
+      document.getElementById('selTelefoneView').textContent = c.telefoneResponsavel||'-';
+    }
+    document.getElementById('selObservacao').value = c.observacoes||'';
+
+    const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+    const statusBox = document.getElementById('presencaStatus');
+    const btn = document.getElementById('btnConfirmarPresenca');
+    if(jaConfirmado){
+      statusBox.innerHTML = `<div class="ok-box">✅ Presença já confirmada em ${dataLabel} às ${c.presencas[chaveDia].hora}</div>`;
+      btn.textContent = 'Reconfirmar presença';
+    }else{
+      statusBox.innerHTML = '';
+      btn.textContent = 'Confirmar presença — '+dataLabel;
+    }
+    document.getElementById('searchResults').innerHTML='';
+    document.getElementById('searchInput').value='';
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+document.getElementById('btnConfirmarPresenca').addEventListener('click', async ()=>{
+  if(!criancaSelecionada) return;
+  const chaveDia = 'dia'+diaAtual;
+  const payload = {
+    id: criancaSelecionada.id,
+    observacoes: document.getElementById('selObservacao').value,
+    presencas: { [chaveDia]: {
+      presente:true,
+      hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+      confirmadoPor: CONFIG.operador || 'não identificado'
+    }}
+  };
+  const camposEditaveisVisiveis = !document.getElementById('dia1Fields').classList.contains('hidden');
+  if(camposEditaveisVisiveis){
+    payload.nomeResponsavel = document.getElementById('selResponsavel').value;
+    payload.telefoneResponsavel = document.getElementById('selTelefone').value;
+  }
+  try{
+    const atualizado = await apiCall('/child','PUT',payload);
+    criancaSelecionada = atualizado;
+    toast('✅ Presença confirmada: '+atualizado.nomeCompleto);
+    document.getElementById('selectedChildBox').classList.add('hidden');
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ============================================================
+// CADASTRO
+// ============================================================
+document.getElementById('cNascimento').addEventListener('change', ()=>{
+  const idade = calcIdade(document.getElementById('cNascimento').value);
+  const sugestao = sugerirCorPorIdade(idade);
+  if(sugestao) document.getElementById('cCor').value = sugestao;
+});
+
+document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
+  const nome = document.getElementById('cNome').value.trim();
+  const responsavel = document.getElementById('cResponsavel').value.trim();
+  const telefone = document.getElementById('cTelefone').value.trim();
+  const cor = document.getElementById('cCor').value;
+  if(!nome || !responsavel || !telefone || !cor){
+    toast('Preencha nome, responsável, telefone e cor.'); return;
+  }
+  const payload = {
+    nomeCompleto: nome,
+    cpf: document.getElementById('cCpf').value.trim(),
+    dataNascimento: document.getElementById('cNascimento').value,
+    alergiaRestricao: document.getElementById('cAlergia').value.trim(),
+    nomeResponsavel: responsavel,
+    telefoneResponsavel: telefone,
+    corEquipe: cor,
+    observacoes: document.getElementById('cObs').value.trim()
+  };
+  try{
+    const criada = await apiCall('/child','POST',payload);
+    indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, corEquipe:criada.corEquipe});
+    document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b></div>`;
+    ['cNome','cCpf','cNascimento','cAlergia','cResponsavel','cTelefone','cObs'].forEach(id=>document.getElementById(id).value='');
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ============================================================
+// IMPORTAR CSV
+// ============================================================
+let csvParseado = [];
+document.getElementById('csvFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  document.getElementById('csvPaste').value = await file.text();
+});
+
+function parseCsv(texto){
+  const linhas = texto.trim().split(/\r?\n/).filter(l=>l.trim());
+  if(linhas.length<2) return [];
+  const sep = linhas[0].includes(';') ? ';' : ',';
+  const cabecalho = linhas[0].split(sep).map(h=>h.trim());
+  const campos = ['nomeCompleto','cpf','dataNascimento','alergiaRestricao','nomeResponsavel','telefoneResponsavel','corEquipe','observacoes'];
+  return linhas.slice(1).map(linha=>{
+    const valores = linha.split(sep).map(v=>v.trim());
+    const obj = {};
+    campos.forEach((c,i)=> obj[c]=valores[i]||'');
+    if(!obj.corEquipe){
+      const idade = calcIdade(obj.dataNascimento);
+      const sugestao = sugerirCorPorIdade(idade);
+      if(sugestao) obj.corEquipe = sugestao;
+    }
+    return obj;
+  }).filter(o=>o.nomeCompleto);
+}
+
+document.getElementById('btnPreview').addEventListener('click', ()=>{
+  const texto = document.getElementById('csvPaste').value;
+  csvParseado = parseCsv(texto);
+  const box = document.getElementById('csvPreview');
+  if(!csvParseado.length){ box.innerHTML='<div class="alerta-box">Nenhuma linha válida encontrada.</div>'; return; }
+  box.innerHTML = `<p class="small-note">${csvParseado.length} crianças prontas para importar. Prévia das 5 primeiras:</p>
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Nasc.</th><th>Responsável</th><th>Telefone</th><th>Cor</th></tr></thead>
+    <tbody>${csvParseado.slice(0,5).map(c=>`<tr><td>${c.nomeCompleto}</td><td>${c.dataNascimento}</td><td>${c.nomeResponsavel}</td><td>${c.telefoneResponsavel}</td><td>${c.corEquipe}</td></tr>`).join('')}</tbody></table></div>`;
+  document.getElementById('btnImportar').classList.remove('hidden');
+});
+
+document.getElementById('btnImportar').addEventListener('click', async ()=>{
+  if(!csvParseado.length) return;
+  try{
+    const r = await apiCall('/child/import','POST',{children:csvParseado});
+    toast('✅ '+r.importadas+' crianças importadas!');
+    indexCache = await apiCall('/index');
+    document.getElementById('csvPreview').innerHTML='';
+    document.getElementById('csvPaste').value='';
+    document.getElementById('btnImportar').classList.add('hidden');
+    document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ============================================================
+// PAINEL ADMIN
+// ============================================================
+let todasCriancas = [];
+async function carregarAdmin(){
+  try{
+    todasCriancas = await apiCall('/children/all');
+    renderAdminStats();
+    renderAdminTabela();
+  }catch(e){ toast('Erro ao carregar painel: '+e.message); }
+}
+document.getElementById('btnRefreshAdmin').addEventListener('click', carregarAdmin);
+
+function renderAdminStats(){
+  const total = todasCriancas.length;
+  const porDia = DIAS.map(d=> todasCriancas.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
+  const stats = document.getElementById('adminStats');
+  stats.innerHTML = `<div class="stat-card"><div class="num">${total}</div><div class="lbl">Total cadastradas</div></div>`
+    + DIAS.map((d,i)=>`<div class="stat-card"><div class="num">${porDia[i]}</div><div class="lbl">Presentes ${DATAS_EVENTO[i]}</div></div>`).join('');
+}
+
+function renderFiltroCor(){
+  const sel = document.getElementById('adminCorFilter');
+  sel.innerHTML = '<option value="">Todas as cores</option>' + coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+}
+
+function filtrarCriancas(){
+  const termo = document.getElementById('adminSearch').value.trim().toLowerCase();
+  const diaFiltro = document.getElementById('adminDayFilter').value;
+  const corFiltro = document.getElementById('adminCorFilter').value;
+  return todasCriancas.filter(c=>{
+    if(termo && !(c.nomeCompleto.toLowerCase().includes(termo) || String(c.numero).includes(termo) || (c.nomeResponsavel||'').toLowerCase().includes(termo))) return false;
+    if(diaFiltro && !(c.presencas && c.presencas[diaFiltro] && c.presencas[diaFiltro].presente)) return false;
+    if(corFiltro && c.corEquipe!==corFiltro) return false;
+    return true;
+  });
+}
+
+function renderAdminTabela(){
+  const lista = filtrarCriancas();
+  const tbody = document.getElementById('adminTableBody');
+  tbody.innerHTML = lista.map(c=>{
+    const dots = DIAS.map(d=>{
+      const p = c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente;
+      return `<span class="presenca-dot ${p?'pd-sim':'pd-nao'}" title="${p? 'Presente às '+c.presencas['dia'+d].hora : 'Ausente'}">${p?'✓':'–'}</span>`;
+    }).join(' ');
+    return `<tr>
+      <td>#${c.numero}</td>
+      <td>${c.nomeCompleto}</td>
+      <td>${c.idade!=null?c.idade:calcIdade(c.dataNascimento)}</td>
+      <td><span class="badge" style="${badgeStyle(c.corEquipe)}">${c.corEquipe||'-'}</span></td>
+      <td>${dots}</td>
+      <td>${c.nomeResponsavel||'-'}</td>
+      <td>${c.telefoneResponsavel||'-'}</td>
+      <td>${c.alergiaRestricao? '⚠️ '+c.alergiaRestricao : '-'}</td>
+      <td>${c.observacoes||'-'}</td>
+      <td><button class="danger" data-del="${c.id}">Excluir</button></td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('Excluir este cadastro? Essa ação não pode ser desfeita.')) return;
+      try{
+        await apiCall('/child?id='+btn.dataset.del,'DELETE');
+        toast('Cadastro excluído.');
+        carregarAdmin();
+        indexCache = await apiCall('/index');
+      }catch(e){ toast('Erro: '+e.message); }
+    };
+  });
+}
+document.getElementById('adminSearch').addEventListener('input', renderAdminTabela);
+document.getElementById('adminDayFilter').addEventListener('change', renderAdminTabela);
+document.getElementById('adminCorFilter').addEventListener('change', renderAdminTabela);
+
+document.getElementById('btnExportCsv').addEventListener('click', ()=>{
+  const lista = filtrarCriancas();
+  const campos = ['numero','nomeCompleto','idade','corEquipe','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes','dia1','dia2','dia3','dia4','dia5'];
+  const linhas = [campos.join(';')];
+  lista.forEach(c=>{
+    const dias = DIAS.map(d=> (c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente) ? 'presente' : '');
+    linhas.push([c.numero,c.nomeCompleto,c.idade,c.corEquipe,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...dias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
+  });
+  const blob = new Blob(['\ufeff'+linhas.join('\n')], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ebf_criancas_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+});
+
+// ============================================================
+// CONFIGURAÇÕES
+// ============================================================
+document.getElementById('btnSalvarConfig').addEventListener('click', ()=>{
+  CONFIG = {
+    workerUrl: document.getElementById('cfgWorkerUrl').value.trim(),
+    accessCode: document.getElementById('cfgAccessCode').value.trim(),
+    operador: document.getElementById('cfgOperador').value.trim()
+  };
+  localStorage.setItem('ebf_config', JSON.stringify(CONFIG));
+  toast('Configuração salva. Recarregando…');
+  setTimeout(()=>location.reload(), 800);
+});
+
+document.getElementById('btnTestarConexao').addEventListener('click', async ()=>{
+  const url = document.getElementById('cfgWorkerUrl').value.trim();
+  const code = document.getElementById('cfgAccessCode').value.trim();
+  const box = document.getElementById('testeResultado');
+  box.innerHTML = 'Testando…';
+  try{
+    const res = await fetch(url.replace(/\/$/,'')+'/config', { headers:{'X-Access-Code':code} });
+    if(res.ok){ box.innerHTML = '<div class="ok-box">✅ Conexão OK!</div>'; }
+    else{ const e = await res.json(); box.innerHTML = `<div class="alerta-box">❌ ${e.error||res.status}</div>`; }
+  }catch(e){ box.innerHTML = `<div class="alerta-box">❌ ${e.message}</div>`; }
+});
+
+function renderListaCores(){
+  const box = document.getElementById('listaCores');
+  box.innerHTML = coresConfig.cores.map((c,i)=>`
+    <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--cinza-claro);">
+      <span><span class="badge" style="background:${c.hex}">${c.nome}</span></span>
+      <button class="danger" data-idx="${i}">Remover</button>
+    </div>`).join('');
+  box.querySelectorAll('[data-idx]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      coresConfig.cores.splice(Number(btn.dataset.idx),1);
+      await apiCall('/config','PUT',coresConfig);
+      renderListaCores(); preencherSelectCores(); renderFiltroCor();
+    };
+  });
+}
+
+document.getElementById('btnAddCor').addEventListener('click', async ()=>{
+  const nome = document.getElementById('novaCorNome').value.trim();
+  const hex = document.getElementById('novaCorHex').value;
+  if(!nome) return;
+  coresConfig.cores.push({nome, hex});
+  try{
+    await apiCall('/config','PUT',coresConfig);
+    document.getElementById('novaCorNome').value='';
+    renderListaCores(); preencherSelectCores(); renderFiltroCor(); preencherSelectFaixaCor();
+    toast('Cor adicionada.');
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ============================================================
+// FAIXAS ETÁRIAS → COR
+// ============================================================
+function preencherSelectFaixaCor(){
+  const sel = document.getElementById('faixaCor');
+  if(!sel) return;
+  sel.innerHTML = coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+}
+
+function renderListaFaixas(){
+  const box = document.getElementById('listaFaixas');
+  if(!box) return;
+  if(!coresConfig.faixas || !coresConfig.faixas.length){
+    box.innerHTML = '<div class="small-note">Nenhuma faixa configurada ainda — a cor precisa ser escolhida manualmente por enquanto.</div>';
+    return;
+  }
+  box.innerHTML = coresConfig.faixas
+    .slice()
+    .sort((a,b)=>Number(a.min)-Number(b.min))
+    .map((f,i)=>`
+    <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--cinza-claro);">
+      <span>${f.min} a ${f.max} anos → <span class="badge" style="${badgeStyle(f.cor)}">${f.cor}</span></span>
+      <button class="danger" data-fidx="${i}">Remover</button>
+    </div>`).join('');
+  box.querySelectorAll('[data-fidx]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const ordenadas = coresConfig.faixas.slice().sort((a,b)=>Number(a.min)-Number(b.min));
+      const alvo = ordenadas[Number(btn.dataset.fidx)];
+      coresConfig.faixas = coresConfig.faixas.filter(f=>f!==alvo);
+      await apiCall('/config','PUT',coresConfig);
+      renderListaFaixas();
+    };
+  });
+}
+
+document.getElementById('btnAddFaixa').addEventListener('click', async ()=>{
+  const min = document.getElementById('faixaMin').value;
+  const max = document.getElementById('faixaMax').value;
+  const cor = document.getElementById('faixaCor').value;
+  if(min===''||max===''||!cor){ toast('Preencha idade mínima, máxima e a cor.'); return; }
+  if(!coresConfig.faixas) coresConfig.faixas = [];
+  coresConfig.faixas.push({min:Number(min), max:Number(max), cor});
+  try{
+    await apiCall('/config','PUT',coresConfig);
+    document.getElementById('faixaMin').value='';
+    document.getElementById('faixaMax').value='';
+    renderListaFaixas();
+    toast('Faixa adicionada.');
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+init();
+</script>
+</body>
+</html>
