@@ -279,7 +279,10 @@ th{background:var(--areia);position:sticky;top:0;}
   <label>URL do Worker (Cloudflare)</label>
   <input type="text" id="cfgWorkerUrl" placeholder="https://checkin-ebf.SEUUSUARIO.workers.dev">
   <label>Código de acesso</label>
-  <input type="text" id="cfgAccessCode" placeholder="senha combinada com a equipe">
+  <div style="display:flex;gap:8px;align-items:flex-end;">
+    <div style="flex:1;"><input type="password" id="cfgAccessCode" placeholder="senha combinada com a equipe"></div>
+    <button type="button" class="secondary" id="btnToggleSenha" style="margin-bottom:0;white-space:nowrap;">Mostrar</button>
+  </div>
   <label>Seu nome (aparece como "confirmado por" nos registros)</label>
   <input type="text" id="cfgOperador" placeholder="Ex: Maria - Recepção">
   <button class="primary" id="btnSalvarConfig">Salvar</button>
@@ -728,6 +731,13 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
 // ============================================================
 // CONFIGURAÇÕES
 // ============================================================
+document.getElementById('btnToggleSenha').addEventListener('click', ()=>{
+  const campo = document.getElementById('cfgAccessCode');
+  const btn = document.getElementById('btnToggleSenha');
+  if(campo.type==='password'){ campo.type='text'; btn.textContent='Esconder'; }
+  else{ campo.type='password'; btn.textContent='Mostrar'; }
+});
+
 document.getElementById('btnSalvarConfig').addEventListener('click', ()=>{
   CONFIG = {
     workerUrl: document.getElementById('cfgWorkerUrl').value.trim(),
