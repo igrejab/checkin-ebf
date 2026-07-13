@@ -143,20 +143,34 @@ th{background:var(--areia);position:sticky;top:0;}
 .report-scroll{max-height:260px;overflow-y:auto;border:1px solid var(--cinza-claro);border-radius:8px;}
 .report-list-item{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--cinza-claro);font-size:13px;}
 .report-list-item:last-child{border-bottom:none;}
+.comprovante-ticket{
+  max-width:340px;margin:0 auto;text-align:center;border:2px dashed var(--azul-noite);border-radius:12px;padding:20px;
+}
+.comprovante-ticket .numero-grande{font-size:56px;}
+.comprovante-ticket .nome{font-size:20px;font-weight:700;margin:6px 0;}
+body.imprimindo-comprovante #comprovanteImpressao .comprovante-ticket{
+  max-width:none;width:100%;border:none;border-radius:0;padding:0;font-family:'Courier New',monospace;
+}
+body.imprimindo-comprovante #comprovanteImpressao .numero-grande{font-size:34px;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin:6px 0;}
+body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 @media print{
   header, nav, #btnAtualizarRelatorio, #btnImprimirRelatorio, .day-selector{display:none !important;}
   body{background:#fff;}
   main{max-width:100%;padding:0;}
   .card{box-shadow:none;padding:0;margin-bottom:0;}
   .report-scroll{max-height:none !important;overflow:visible !important;}
-  .badge, .bar-fill, .presenca-dot, .report-stat{
+  .badge, .bar-fill, .presenca-dot, .report-stat, .comprovante-ticket{
     -webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;
   }
   .report-stat{box-shadow:none;border:1px solid var(--cinza-claro);}
+  body.imprimindo-comprovante > *:not(#comprovanteImpressao){display:none !important;}
+  body.imprimindo-comprovante #comprovanteImpressao{display:block !important;}
 }
 </style>
 </head>
 <body>
+
+<div id="comprovanteImpressao" class="hidden"></div>
 
 <div id="modalBoasVindas" class="hidden" style="position:fixed;inset:0;background:rgba(30,58,95,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div class="card" style="max-width:380px;width:100%;">
@@ -245,6 +259,19 @@ th{background:var(--areia);position:sticky;top:0;}
 
     <div id="presencaStatus"></div>
     <button class="primary" id="btnConfirmarPresenca">Confirmar presença</button>
+
+    <div id="comprovanteBox" class="hidden" style="margin-top:16px;">
+      <div class="ok-box">✅ Presença confirmada!</div>
+      <div class="comprovante-ticket" style="margin:12px auto;">
+        <div class="small-note">Comprovante de check-in</div>
+        <div class="numero-grande" id="compNumero">#000</div>
+        <div class="nome" id="compNome">Nome</div>
+        <div class="small-note" id="compData">data</div>
+      </div>
+      <button class="secondary" id="btnEnviarWhatsapp" style="width:100%;">Enviar comprovante por WhatsApp</button>
+      <button class="secondary" id="btnImprimirComprovante" style="width:100%;margin-top:8px;">Imprimir comprovante</button>
+      <button class="primary" id="btnConcluirCheckin" style="width:100%;margin-top:8px;">Concluído — buscar próxima criança</button>
+    </div>
   </div>
 </section>
 
@@ -426,6 +453,10 @@ th{background:var(--areia);position:sticky;top:0;}
   </div>
   <label>Seu nome (aparece como "confirmado por" nos registros)</label>
   <input type="text" id="cfgOperador" placeholder="Ex: Maria - Recepção">
+  <label style="display:flex;align-items:center;gap:8px;margin-top:16px;">
+    <input type="checkbox" id="cfgAutoImprimir" style="width:auto;">
+    Imprimir comprovante automaticamente após confirmar presença <span style="font-weight:400;color:var(--cinza);">(precisa de uma impressora térmica configurada neste computador)</span>
+  </label>
   <button class="primary" id="btnSalvarConfig">Salvar</button>
   <button class="secondary" id="btnTestarConexao">Testar conexão</button>
   <div id="testeResultado"></div>
@@ -539,6 +570,7 @@ async function init(){
   document.getElementById('cfgWorkerUrl').value = CONFIG.workerUrl || '';
   document.getElementById('cfgAccessCode').value = CONFIG.accessCode || '';
   document.getElementById('cfgOperador').value = CONFIG.operador || '';
+  document.getElementById('cfgAutoImprimir').checked = !!CONFIG.autoImprimir;
 
   montarSeletorDias();
   DIAS.forEach((d,i)=>{
@@ -660,6 +692,8 @@ async function selecionarCrianca(id){
     const c = await apiCall('/child?id='+id);
     criancaSelecionada = c;
     document.getElementById('selectedChildBox').classList.remove('hidden');
+    document.getElementById('comprovanteBox').classList.add('hidden');
+    document.getElementById('btnConfirmarPresenca').classList.remove('hidden');
     document.getElementById('selNumero').textContent = '#'+c.numero;
     const corDaCrianca = corPorIdade(calcIdade(c.dataNascimento)).nome;
     document.getElementById('selCorBadge').textContent = corDaCrianca;
@@ -737,6 +771,8 @@ document.getElementById('btnSalvarNovaPalavra').addEventListener('click', async 
 document.getElementById('btnLimparSelecao').addEventListener('click', ()=>{
   criancaSelecionada = null;
   document.getElementById('selectedChildBox').classList.add('hidden');
+  document.getElementById('comprovanteBox').classList.add('hidden');
+  document.getElementById('btnConfirmarPresenca').classList.remove('hidden');
   document.getElementById('searchInput').value='';
   document.getElementById('searchResults').innerHTML='';
   document.getElementById('selResponsavel').value='';
@@ -780,8 +816,76 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
     const atualizado = await apiCall('/child','PUT',payload);
     criancaSelecionada = atualizado;
     toast('✅ Presença confirmada: '+atualizado.nomeCompleto);
-    document.getElementById('selectedChildBox').classList.add('hidden');
+    mostrarComprovante(atualizado);
   }catch(e){ toast('Erro: '+e.message); }
+});
+
+function mostrarComprovante(c){
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  document.getElementById('dia1Fields').classList.add('hidden');
+  document.getElementById('diaOutroFields').classList.add('hidden');
+  document.getElementById('btnConfirmarPresenca').classList.add('hidden');
+  document.getElementById('compNumero').textContent = '#'+c.numero;
+  document.getElementById('compNome').textContent = c.nomeCompleto;
+  document.getElementById('compData').textContent = dataLabel+' · pulseira '+corPorIdade(calcIdade(c.dataNascimento)).nome;
+  document.getElementById('comprovanteBox').classList.remove('hidden');
+  if(CONFIG.autoImprimir) imprimirComprovante();
+}
+
+function telefoneParaWhatsapp(tel){
+  let digitos = (tel||'').replace(/\D/g,'');
+  if(!digitos) return null;
+  if(!digitos.startsWith('55')) digitos = '55'+digitos;
+  return digitos;
+}
+
+document.getElementById('btnEnviarWhatsapp').addEventListener('click', ()=>{
+  const c = criancaSelecionada;
+  if(!c) return;
+  const numeroWhats = telefoneParaWhatsapp(c.telefoneResponsavel);
+  if(!numeroWhats){ toast('Esta criança não tem telefone do responsável cadastrado.'); return; }
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  const mensagem = `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — pode ser pedida na retirada, junto com a palavra secreta combinada.`;
+  window.open(`https://wa.me/${numeroWhats}?text=${encodeURIComponent(mensagem)}`, '_blank');
+});
+
+function definirTamanhoPaginaImpressao(tamanho){
+  let styleTag = document.getElementById('printPageSizeStyle');
+  if(!styleTag){
+    styleTag = document.createElement('style');
+    styleTag.id = 'printPageSizeStyle';
+    document.head.appendChild(styleTag);
+  }
+  styleTag.textContent = tamanho ? `@page{size:${tamanho};margin:2mm;}` : '';
+}
+
+function imprimirComprovante(){
+  const c = criancaSelecionada;
+  if(!c) return;
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  document.getElementById('comprovanteImpressao').innerHTML = `
+    <div class="comprovante-ticket">
+      <div class="small-note">Comprovante de check-in</div>
+      <div class="numero-grande">#${c.numero}</div>
+      <div class="nome">${c.nomeCompleto}</div>
+      <div class="small-note">${dataLabel} · pulseira ${corPorIdade(calcIdade(c.dataNascimento)).nome}</div>
+      <p class="small-note" style="margin-top:14px;">Apresente este comprovante ou a palavra secreta combinada na hora da retirada.</p>
+    </div>`;
+  definirTamanhoPaginaImpressao('80mm auto');
+  document.body.classList.add('imprimindo-comprovante');
+  window.print();
+}
+document.getElementById('btnImprimirComprovante').addEventListener('click', imprimirComprovante);
+window.addEventListener('afterprint', ()=>{
+  document.body.classList.remove('imprimindo-comprovante');
+  definirTamanhoPaginaImpressao(null);
+});
+
+document.getElementById('btnConcluirCheckin').addEventListener('click', ()=>{
+  criancaSelecionada = null;
+  document.getElementById('comprovanteBox').classList.add('hidden');
+  document.getElementById('btnConfirmarPresenca').classList.remove('hidden');
+  document.getElementById('selectedChildBox').classList.add('hidden');
 });
 
 document.getElementById('searchInputSaida').addEventListener('input', (e)=>{
@@ -1368,7 +1472,8 @@ document.getElementById('btnSalvarConfig').addEventListener('click', ()=>{
   CONFIG = {
     workerUrl: document.getElementById('cfgWorkerUrl').value.trim(),
     accessCode: document.getElementById('cfgAccessCode').value.trim(),
-    operador: document.getElementById('cfgOperador').value.trim()
+    operador: document.getElementById('cfgOperador').value.trim(),
+    autoImprimir: document.getElementById('cfgAutoImprimir').checked
   };
   localStorage.setItem('ebf_config', JSON.stringify(CONFIG));
   toast('Configuração salva. Recarregando…');
