@@ -116,6 +116,7 @@ th{background:var(--areia);position:sticky;top:0;}
 .presenca-dot{display:inline-block;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:12px;color:#fff;font-weight:700;}
 .pd-sim{background:var(--verde-ok);}
 .pd-nao{background:var(--cinza-claro);color:var(--cinza);}
+.pd-saida{background:var(--azul-medio);}
 .toast{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
   background:var(--azul-noite);color:#fff;padding:12px 22px;border-radius:8px;
@@ -138,6 +139,7 @@ th{background:var(--areia);position:sticky;top:0;}
 
 <nav id="mainNav">
   <button data-tab="checkin" class="active">Check-in</button>
+  <button data-tab="retirada">Retirada</button>
   <button data-tab="cadastro">Cadastrar</button>
   <button data-tab="importar">Importar Lista</button>
   <button data-tab="admin">Painel Admin</button>
@@ -174,6 +176,8 @@ th{background:var(--areia);position:sticky;top:0;}
       <input type="text" id="selResponsavel">
       <label>Telefone do responsável</label>
       <input type="text" id="selTelefone">
+      <label>Palavra secreta de retirada <span style="font-weight:400;color:var(--cinza);">(combine com o responsável agora)</span></label>
+      <input type="text" id="selPalavraSecreta" placeholder="Ex: girassol">
     </div>
     <div id="diaOutroFields" class="hidden">
       <div class="info-line">Responsável: <b id="selResponsavelView"></b></div>
@@ -185,6 +189,47 @@ th{background:var(--areia);position:sticky;top:0;}
 
     <div id="presencaStatus"></div>
     <button class="primary" id="btnConfirmarPresenca">Confirmar presença</button>
+  </div>
+</section>
+
+<!-- ===================== TAB: RETIRADA ===================== -->
+<section id="tab-retirada" class="card hidden">
+  <div class="day-selector" id="daySelectorSaida"></div>
+
+  <label>Buscar criança pelo nome</label>
+  <input type="text" id="searchInputSaida" placeholder="Digite o nome da criança…" autocomplete="off">
+  <div class="search-results" id="searchResultsSaida"></div>
+
+  <div id="saidaChildBox" class="hidden" style="margin-top:16px;border-top:1px solid var(--cinza-claro);padding-top:16px;">
+    <div class="selected-header">
+      <div class="numero-grande" id="saidaNumero">#000</div>
+      <div style="text-align:right;">
+        <div class="small-note" style="margin:0 0 2px;">Pulseira</div>
+        <span class="badge" id="saidaCorBadge" style="font-size:14px;padding:6px 16px;">cor</span>
+      </div>
+    </div>
+    <div style="font-size:20px;font-weight:700;" id="saidaNome">Nome</div>
+    <div class="info-line">Idade: <b id="saidaIdade">-</b></div>
+
+    <div id="saidaStatusBox"></div>
+
+    <div id="saidaFormBox">
+      <label>Peça a palavra secreta para quem está buscando a criança:</label>
+      <input type="text" id="saidaPalavraInput" placeholder="Digite o que a pessoa disse" autocomplete="off" style="font-size:18px;text-align:center;">
+      <button class="primary" id="btnConfirmarRetirada" disabled style="width:100%;font-size:16px;">Confirmar retirada</button>
+      <div id="saidaFeedback" style="text-align:center;margin-top:8px;"></div>
+
+      <div style="text-align:center;margin-top:14px;">
+        <button class="secondary" id="btnNaoLembra" style="font-size:13px;">Responsável não lembra a palavra secreta</button>
+      </div>
+
+      <div id="saidaManualBox" class="hidden" style="margin-top:14px;border-top:1px dashed var(--cinza-claro);padding-top:14px;">
+        <p class="small-note">Confira presencialmente se quem está buscando é o responsável cadastrado (ou alguém que ele autorizou), antes de liberar sem a palavra secreta:</p>
+        <div class="info-line">Responsável cadastrado: <b id="saidaRespView"></b></div>
+        <div class="info-line">Telefone: <b id="saidaTelView"></b></div>
+        <button class="primary" id="btnLiberarManual" style="background:var(--vermelho-alerta);width:100%;margin-top:8px;">Liberar mesmo assim (verificado manualmente)</button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -223,6 +268,8 @@ th{background:var(--areia);position:sticky;top:0;}
       <input type="text" id="cTelefone">
     </div>
   </div>
+  <label>Palavra secreta de retirada <span style="font-weight:400;color:var(--cinza);">(combine com o responsável — só quem souber pode buscar a criança)</span></label>
+  <input type="text" id="cPalavraSecreta" placeholder="Ex: girassol">
   <label>Observações</label>
   <textarea id="cObs"></textarea>
   <button class="primary" id="btnCadastrar">Cadastrar criança</button>
@@ -267,6 +314,11 @@ th{background:var(--areia);position:sticky;top:0;}
   <div class="flex-between" style="margin:10px 0;">
     <button class="secondary" id="btnRefreshAdmin">🔄 Atualizar</button>
     <button class="secondary" id="btnExportCsv">⬇️ Exportar CSV</button>
+  </div>
+  <div class="small-note" style="margin-bottom:8px;">
+    Em cada dia: <span class="presenca-dot pd-sim" style="width:16px;height:16px;line-height:16px;font-size:10px;">✓</span> entrada confirmada &nbsp;·&nbsp;
+    <span class="presenca-dot pd-saida" style="width:16px;height:16px;line-height:16px;font-size:10px;">S</span> já retirada &nbsp;·&nbsp;
+    <span class="presenca-dot pd-nao" style="width:16px;height:16px;line-height:16px;font-size:10px;">–</span> ainda não. Clique num símbolo colorido para desfazer.
   </div>
   <div class="table-wrap">
     <table>
@@ -339,6 +391,7 @@ function badgeStyle(nomeCor){
 let indexCache = [];
 let diaAtual = 1;
 let criancaSelecionada = null;
+let criancaSaidaSelecionada = null;
 
 function workerUrl(){ return (CONFIG.workerUrl||'').replace(/\/$/,''); }
 
@@ -384,6 +437,7 @@ document.getElementById('mainNav').addEventListener('click', (e)=>{
   document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');
   if(e.target.dataset.tab==='admin') carregarAdmin();
   if(e.target.dataset.tab==='checkin') atualizarIndexCache();
+  if(e.target.dataset.tab==='retirada') atualizarIndexCache();
 });
 
 async function atualizarIndexCache(){
@@ -442,14 +496,22 @@ function renderListaCoresFixas(){
 }
 
 function montarSeletorDias(){
-  const el = document.getElementById('daySelector');
-  el.innerHTML='';
-  DIAS.forEach(d=>{
-    const b = document.createElement('button');
-    b.className='day-btn'+(d===diaAtual?' active':'');
-    b.textContent=DATAS_EVENTO[d-1] || ('Dia '+d);
-    b.onclick=()=>{ diaAtual=d; montarSeletorDias(); if(criancaSelecionada) selecionarCrianca(criancaSelecionada.id); };
-    el.appendChild(b);
+  [['daySelector', selecionarCrianca], ['daySelectorSaida', selecionarCriancaSaida]].forEach(([elId, onSelectRefresh])=>{
+    const el = document.getElementById(elId);
+    if(!el) return;
+    el.innerHTML='';
+    DIAS.forEach(d=>{
+      const b = document.createElement('button');
+      b.className='day-btn'+(d===diaAtual?' active':'');
+      b.textContent=DATAS_EVENTO[d-1] || ('Dia '+d);
+      b.onclick=()=>{
+        diaAtual=d;
+        montarSeletorDias();
+        if(criancaSelecionada) selecionarCrianca(criancaSelecionada.id);
+        if(criancaSaidaSelecionada) selecionarCriancaSaida(criancaSaidaSelecionada.id);
+      };
+      el.appendChild(b);
+    });
   });
 }
 
@@ -501,6 +563,7 @@ async function selecionarCrianca(id){
       document.getElementById('diaOutroFields').classList.add('hidden');
       document.getElementById('selResponsavel').value = c.nomeResponsavel||'';
       document.getElementById('selTelefone').value = c.telefoneResponsavel||'';
+      document.getElementById('selPalavraSecreta').value = c.palavraSecreta||'';
     }else{
       document.getElementById('dia1Fields').classList.add('hidden');
       document.getElementById('diaOutroFields').classList.remove('hidden');
@@ -549,6 +612,7 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
   if(camposEditaveisVisiveis){
     payload.nomeResponsavel = document.getElementById('selResponsavel').value;
     payload.telefoneResponsavel = document.getElementById('selTelefone').value;
+    payload.palavraSecreta = document.getElementById('selPalavraSecreta').value;
   }
   try{
     const atualizado = await apiCall('/child','PUT',payload);
@@ -556,6 +620,157 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
     toast('✅ Presença confirmada: '+atualizado.nomeCompleto);
     document.getElementById('selectedChildBox').classList.add('hidden');
   }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ============================================================
+// RETIRADA (CHECK-OUT) — confirmação por palavra secreta
+// ============================================================
+document.getElementById('searchInputSaida').addEventListener('input', (e)=>{
+  const termo = e.target.value.trim().toLowerCase();
+  const box = document.getElementById('searchResultsSaida');
+  if(termo.length<2){ box.innerHTML=''; return; }
+  const resultados = indexCache.filter(c=>c.nomeCompleto.toLowerCase().includes(termo)).slice(0,15);
+  box.innerHTML = resultados.map(c=>`
+    <div class="search-item" data-id="${c.id}">
+      <span>
+        <b>#${c.numero}</b> — ${c.nomeCompleto}
+        <div class="small-note" style="margin:2px 0 0;">${calcIdade(c.dataNascimento)} anos · resp.: ${c.nomeResponsavel||'-'}</div>
+      </span>
+      <span class="badge" style="${badgeStyle(corPorIdade(calcIdade(c.dataNascimento)).nome)}">${corPorIdade(calcIdade(c.dataNascimento)).nome}</span>
+    </div>`).join('') || '<div class="small-note" style="padding:10px;">Nenhuma criança encontrada</div>';
+  box.querySelectorAll('.search-item').forEach(item=>{
+    item.onclick = ()=> selecionarCriancaSaida(item.dataset.id);
+  });
+});
+
+async function selecionarCriancaSaida(id){
+  try{
+    const c = await apiCall('/child?id='+id);
+    criancaSaidaSelecionada = c;
+    document.getElementById('saidaChildBox').classList.remove('hidden');
+    document.getElementById('saidaNumero').textContent = '#'+c.numero;
+    const corDaCrianca = corPorIdade(calcIdade(c.dataNascimento)).nome;
+    document.getElementById('saidaCorBadge').textContent = corDaCrianca;
+    document.getElementById('saidaCorBadge').style.cssText = 'font-size:14px;padding:6px 16px;'+badgeStyle(corDaCrianca);
+    document.getElementById('saidaNome').textContent = c.nomeCompleto;
+    document.getElementById('saidaIdade').textContent = calcIdade(c.dataNascimento)+' anos';
+
+    const chaveDia = 'dia'+diaAtual;
+    const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+    const diaObj = (c.presencas && c.presencas[chaveDia]) || {};
+    const statusBox = document.getElementById('saidaStatusBox');
+    const formBox = document.getElementById('saidaFormBox');
+
+    resetFormularioSaida();
+
+    if(!diaObj.presente){
+      // criança ainda não teve check-in confirmado neste dia — não faz sentido liberar retirada
+      statusBox.innerHTML = `<div class="alerta-box">⚠️ Esta criança ainda não teve presença confirmada em ${dataLabel}. Confirme a presença na aba Check-in antes de liberar a retirada.</div>`;
+      formBox.classList.add('hidden');
+      document.getElementById('searchResultsSaida').innerHTML='';
+      document.getElementById('searchInputSaida').value='';
+      return;
+    }
+
+    if(diaObj.retirada && diaObj.retirada.liberado){
+      statusBox.innerHTML = `<div class="ok-box">✅ Já retirada em ${dataLabel} às ${diaObj.retirada.hora} (${diaObj.retirada.metodo==='manual'?'verificação manual':'palavra secreta'}, por ${diaObj.retirada.liberadoPor||'-'})</div>
+        <button class="secondary" id="btnDesfazerRetirada" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);margin-bottom:12px;">Desfazer retirada (marquei por engano)</button>`;
+      document.getElementById('btnDesfazerRetirada').onclick = async ()=>{
+        if(!confirm(`Desfazer a retirada de ${c.nomeCompleto} em ${dataLabel}?`)) return;
+        try{
+          const payload = { id:c.id, presencas: { [chaveDia]: { ...diaObj, retirada:{liberado:false} } } };
+          await apiCall('/child','PUT',payload);
+          toast('Retirada desfeita.');
+          selecionarCriancaSaida(c.id);
+        }catch(e){ toast('Erro: '+e.message); }
+      };
+      formBox.classList.remove('hidden');
+    }else{
+      statusBox.innerHTML = '';
+      formBox.classList.remove('hidden');
+    }
+
+    document.getElementById('searchResultsSaida').innerHTML='';
+    document.getElementById('searchInputSaida').value='';
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+function resetFormularioSaida(){
+  document.getElementById('saidaPalavraInput').value='';
+  document.getElementById('btnConfirmarRetirada').disabled = true;
+  document.getElementById('btnConfirmarRetirada').style.cssText='width:100%;font-size:16px;';
+  document.getElementById('saidaFeedback').innerHTML='';
+  document.getElementById('saidaManualBox').classList.add('hidden');
+}
+
+document.getElementById('saidaPalavraInput').addEventListener('input', ()=>{
+  const digitado = normalizar(document.getElementById('saidaPalavraInput').value);
+  const btn = document.getElementById('btnConfirmarRetirada');
+  const feedback = document.getElementById('saidaFeedback');
+  const secretaCadastrada = normalizar((criancaSaidaSelecionada||{}).palavraSecreta||'');
+
+  if(!secretaCadastrada){
+    feedback.innerHTML = '<span style="color:var(--cinza);font-size:13px;">Esta criança não tem palavra secreta cadastrada — use "não lembra a palavra" para verificar manualmente.</span>';
+    btn.disabled = true;
+    btn.style.cssText='width:100%;font-size:16px;';
+    return;
+  }
+  if(digitado && digitado===secretaCadastrada){
+    btn.disabled = false;
+    btn.style.cssText='width:100%;font-size:16px;background:var(--verde-ok);';
+    feedback.innerHTML = '<span style="color:var(--verde-ok);font-weight:600;">✅ Palavra confere — toque para confirmar</span>';
+  }else{
+    btn.disabled = true;
+    btn.style.cssText='width:100%;font-size:16px;';
+    feedback.innerHTML = digitado ? '<span style="color:var(--vermelho-alerta);font-size:13px;">Palavra não confere</span>' : '';
+  }
+});
+
+// normaliza para comparar a palavra secreta sem se importar com acento, maiúscula/minúscula,
+// espaços ou qualquer caractere especial (pontuação, símbolos etc.) — só letras e números contam
+function normalizar(txt){
+  return (txt||'').toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g,''); // remove tudo que não for letra ou número (espaço, hífen, pontuação, etc.)
+}
+
+async function liberarRetirada(metodo){
+  if(!criancaSaidaSelecionada) return;
+  const chaveDia = 'dia'+diaAtual;
+  const c = criancaSaidaSelecionada;
+  const diaObjAtual = (c.presencas && c.presencas[chaveDia]) || {};
+  const payload = {
+    id: c.id,
+    presencas: { [chaveDia]: {
+      ...diaObjAtual,
+      retirada: {
+        liberado: true,
+        hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+        liberadoPor: CONFIG.operador || 'não identificado',
+        metodo
+      }
+    }}
+  };
+  try{
+    await apiCall('/child','PUT',payload);
+    toast('✅ Retirada liberada: '+c.nomeCompleto);
+    document.getElementById('saidaChildBox').classList.add('hidden');
+    criancaSaidaSelecionada = null;
+  }catch(e){ toast('Erro: '+e.message); }
+}
+
+document.getElementById('btnConfirmarRetirada').addEventListener('click', ()=> liberarRetirada('senha'));
+
+document.getElementById('btnNaoLembra').addEventListener('click', ()=>{
+  document.getElementById('saidaManualBox').classList.remove('hidden');
+  document.getElementById('saidaRespView').textContent = (criancaSaidaSelecionada||{}).nomeResponsavel || '-';
+  document.getElementById('saidaTelView').textContent = (criancaSaidaSelecionada||{}).telefoneResponsavel || '-';
+});
+
+document.getElementById('btnLiberarManual').addEventListener('click', ()=>{
+  if(!confirm('Confirma que verificou presencialmente que esta pessoa está autorizada a levar a criança?')) return;
+  liberarRetirada('manual');
 });
 
 // ============================================================
@@ -735,10 +950,18 @@ function renderAdminTabela(){
   tbody.innerHTML = lista.map(c=>{
     const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento));
     // uma célula <td> PARA CADA dia (o header tem 5 colunas separadas — aqui também precisa ter 5)
+    // cada célula mostra ENTRADA (verde, em cima) e RETIRADA (azul, embaixo)
     const celulasDias = DIAS.map(d=>{
-      const p = c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente;
+      const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
+      const p = diaObj.presente;
+      const r = diaObj.retirada && diaObj.retirada.liberado;
+      const tituloEntrada = p ? 'Entrada às '+diaObj.hora+' — clique para desfazer' : 'Sem entrada';
+      const tituloSaida = r ? 'Saída às '+diaObj.retirada.hora+' ('+(diaObj.retirada.metodo==='manual'?'manual':'senha')+', por '+(diaObj.retirada.liberadoPor||'-')+') — clique para desfazer' : (p ? 'Ainda não retirada' : '-');
       return `<td>
-        <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${p? 'Presente às '+c.presencas['dia'+d].hora+' — clique para desfazer' : 'Ausente'}">${p?'✓':'–'}</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${tituloEntrada}">${p?'✓':'–'}</span>
+          <span class="presenca-dot ${r?'pd-saida':'pd-nao'}" style="font-size:10px;width:18px;height:18px;line-height:18px;${r?'cursor:pointer;':''}" ${r?`data-undo-retirada-id="${c.id}" data-undo-retirada-dia="dia${d}"`:''} title="${tituloSaida}">${r?'S':'–'}</span>
+        </div>
       </td>`;
     }).join('');
     return `<tr>
@@ -758,10 +981,23 @@ function renderAdminTabela(){
     dot.onclick = async ()=>{
       const id = dot.dataset.undoId, dia = dot.dataset.undoDia;
       const criancaNome = (todasCriancas.find(c=>c.id===id)||{}).nomeCompleto || '';
-      if(!confirm(`Desfazer a confirmação de presença de ${criancaNome} neste dia?`)) return;
+      if(!confirm(`Desfazer a confirmação de presença (entrada) de ${criancaNome} neste dia?`)) return;
       try{
         await apiCall('/child','PUT',{ id, presencas:{ [dia]: {presente:false} } });
         toast('Confirmação desfeita.');
+        carregarAdmin();
+      }catch(e){ toast('Erro: '+e.message); }
+    };
+  });
+  tbody.querySelectorAll('[data-undo-retirada-id]').forEach(dot=>{
+    dot.onclick = async ()=>{
+      const id = dot.dataset.undoRetiradaId, dia = dot.dataset.undoRetiradaDia;
+      const crianca = todasCriancas.find(c=>c.id===id) || {};
+      const diaObjAtual = (crianca.presencas && crianca.presencas[dia]) || {};
+      if(!confirm(`Desfazer a retirada de ${crianca.nomeCompleto||''} neste dia?`)) return;
+      try{
+        await apiCall('/child','PUT',{ id, presencas:{ [dia]: { ...diaObjAtual, retirada:{liberado:false} } } });
+        toast('Retirada desfeita.');
         carregarAdmin();
       }catch(e){ toast('Erro: '+e.message); }
     };
