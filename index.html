@@ -492,6 +492,14 @@ function calcIdade(dataNasc){
   return idade;
 }
 
+const RESPOSTAS_SEM_ALERGIA = new Set(['nao','na','n/a','nenhuma','nenhum','nada','-','x','sem alergia','sem restricao','sem restricoes','sem alergias','sem alergia e sem restricao','no','none','nenhuma alergia','nenhuma restricao']);
+function temAlergiaReal(texto){
+  if(!texto) return false;
+  const norm = texto.toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  if(!norm) return false;
+  return !RESPOSTAS_SEM_ALERGIA.has(norm);
+}
+
 document.getElementById('mainNav').addEventListener('click', (e)=>{
   if(e.target.tagName!=='BUTTON') return;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
@@ -649,7 +657,7 @@ async function selecionarCrianca(id){
     document.getElementById('selIdade').textContent = calcIdade(c.dataNascimento)+' anos';
 
     const alergiaBox = document.getElementById('selAlergiaBox');
-    alergiaBox.innerHTML = c.alergiaRestricao
+    alergiaBox.innerHTML = temAlergiaReal(c.alergiaRestricao)
       ? `<div class="alerta-box">⚠️ Alergia/restrição: ${c.alergiaRestricao}</div>` : '';
 
     const chaveDia = 'dia'+diaAtual;
@@ -1081,7 +1089,7 @@ function renderAdminTabela(){
       ${celulasDias}
       <td>${c.nomeResponsavel||'-'}</td>
       <td>${c.telefoneResponsavel||'-'}</td>
-      <td>${c.alergiaRestricao? '⚠️ '+c.alergiaRestricao : '-'}</td>
+      <td>${temAlergiaReal(c.alergiaRestricao)? '⚠️ '+c.alergiaRestricao : '-'}</td>
       <td>${c.observacoes||'-'}</td>
       <td><button class="danger" data-del="${c.id}">Excluir</button></td>
     </tr>`;
@@ -1218,7 +1226,7 @@ function montarRelatorioDiaHtml(dados){
   const gruposAlergia = {};
   presentesHojeLista.forEach(c=>{
     const texto = (c.alergiaRestricao||'').trim();
-    if(!texto) return;
+    if(!temAlergiaReal(texto)) return;
     const chave = normalizarTexto(texto);
     if(!gruposAlergia[chave]) gruposAlergia[chave] = { texto, qtd:0 };
     gruposAlergia[chave].qtd++;
