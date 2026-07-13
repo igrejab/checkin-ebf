@@ -372,21 +372,10 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <section id="tab-importar" class="card hidden">
   <h2 style="margin-top:0;">Importar lista (CSV)</h2>
   <p class="small-note">
-    O CSV precisa ter uma linha de cabeçalho. A ordem das colunas não importa, e os nomes não
-    precisam ser exatos — o sistema reconhece por palavras-chave dentro do cabeçalho (com ou sem
-    acento, mesmo em perguntas longas de formulário). Por exemplo, ele reconhece automaticamente
-    colunas como <code>Nome</code>, <code>Número do documento</code>, <code>Data de Nascimento</code>,
-    qualquer coluna que fale de <code>alergia</code> ou <code>restrição</code>, colunas que combinem
-    <code>nome</code> e <code>telefone</code> do <code>responsável</code> num único campo, e
-    <code>Celular</code> (usado como telefone quando o campo de responsável não trouxer telefone).
-    Também reconhece perguntas sobre participação regular (ex: "já participa do Semear?").<br>
-    Data de nascimento pode estar em <b>AAAA-MM-DD</b> ou <b>DD/MM/AAAA</b>. A cor da pulseira é calculada
-    automaticamente pela idade — não precisa de coluna de cor. Se uma criança da lista já estiver
-    cadastrada (mesmo número de documento ou mesmo nome), o cadastro dela é <b>atualizado</b>, não duplicado.
   </p>
   <input type="file" id="csvFile" accept=".csv">
   <div class="small-note">ou cole o conteúdo do CSV abaixo:</div>
-  <textarea id="csvPaste" placeholder="Nome Completo;CPF;Data de Nascimento;Alergia;Nome do Responsável;Telefone do Responsável;Observações" style="min-height:140px;"></textarea>
+  <textarea id="csvPaste" style="min-height:140px;"></textarea>
   <button class="secondary" id="btnPreview">Pré-visualizar</button>
   <div id="csvPreview"></div>
   <button class="primary hidden" id="btnImportar">Confirmar importação</button>
