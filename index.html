@@ -1129,12 +1129,25 @@ document.getElementById('adminCorFilter').addEventListener('change', renderAdmin
 
 document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const lista = filtrarCriancas();
-  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes','dia1','dia2','dia3','dia4','dia5'];
+  const camposDia = d => [`dia${d}_entrada`, `dia${d}_hora_entrada`, `dia${d}_confirmado_por`, `dia${d}_saida`, `dia${d}_hora_saida`, `dia${d}_liberado_por`, `dia${d}_metodo_saida`];
+  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes', ...DIAS.flatMap(camposDia)];
   const linhas = [campos.join(';')];
   lista.forEach(c=>{
-    const dias = DIAS.map(d=> (c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente) ? 'presente' : '');
     const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento)).nome;
-    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...dias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
+    const colunasDias = DIAS.flatMap(d=>{
+      const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
+      const retirada = diaObj.retirada || {};
+      return [
+        diaObj.presente ? 'sim' : '',
+        diaObj.presente ? (diaObj.hora||'') : '',
+        diaObj.presente ? (diaObj.confirmadoPor||'') : '',
+        retirada.liberado ? 'sim' : '',
+        retirada.liberado ? (retirada.hora||'') : '',
+        retirada.liberado ? (retirada.liberadoPor||'') : '',
+        retirada.liberado ? (retirada.metodo==='manual'?'manual':'senha') : ''
+      ];
+    });
+    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
   });
   const blob = new Blob(['\ufeff'+linhas.join('\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
