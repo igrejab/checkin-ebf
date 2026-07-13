@@ -150,7 +150,10 @@ th{background:var(--areia);position:sticky;top:0;}
 <section id="tab-checkin" class="card">
   <div class="day-selector" id="daySelector"></div>
 
-  <label>Buscar criança pelo nome</label>
+  <div class="flex-between">
+    <label style="margin:0;">Buscar criança pelo nome</label>
+    <button class="secondary" id="btnAtualizarLista" style="padding:4px 12px;font-size:12px;">🔄 Atualizar lista</button>
+  </div>
   <input type="text" id="searchInput" placeholder="Digite o nome da criança…" autocomplete="off">
   <div class="search-results" id="searchResults"></div>
 
@@ -380,6 +383,19 @@ document.getElementById('mainNav').addEventListener('click', (e)=>{
   document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
   document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');
   if(e.target.dataset.tab==='admin') carregarAdmin();
+  if(e.target.dataset.tab==='checkin') atualizarIndexCache();
+});
+
+async function atualizarIndexCache(){
+  if(!CONFIG.workerUrl || !CONFIG.accessCode) return;
+  try{
+    indexCache = await apiCall('/index');
+    document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
+  }catch(e){ /* silencioso: se falhar, mantém a lista que já tinha em memória */ }
+}
+document.getElementById('btnAtualizarLista').addEventListener('click', async ()=>{
+  await atualizarIndexCache();
+  toast('Lista atualizada — '+indexCache.length+' crianças.');
 });
 
 // ============================================================
