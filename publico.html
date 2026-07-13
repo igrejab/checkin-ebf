@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check-in — Escola Bíblica de Férias</title>
+<style>
+:root{
+  --azul-noite:#1E3A5F;
+  --azul-medio:#2C5F8A;
+  --areia:#F7F3EC;
+  --branco:#FFFFFF;
+  --verde-ok:#2E8B57;
+  --vermelho-alerta:#C13B3B;
+  --cinza:#6B7280;
+  --cinza-claro:#E5E7EB;
+  --texto:#1F2937;
+  --raio:10px;
+  --sombra:0 2px 10px rgba(30,58,95,0.10);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--areia);
+  color:var(--texto);
+  min-height:100vh;
+}
+header{
+  background:var(--azul-noite);
+  color:var(--branco);
+  padding:18px 20px;
+  text-align:center;
+}
+header h1{font-size:18px;margin:0;font-weight:700;}
+header p{font-size:13px;margin:4px 0 0;opacity:.85;}
+main{max-width:460px;margin:0 auto;padding:20px;}
+.card{
+  background:var(--branco);
+  border-radius:var(--raio);
+  box-shadow:var(--sombra);
+  padding:22px;
+  margin-bottom:16px;
+}
+.hidden{display:none !important;}
+label{display:block;font-size:13px;font-weight:600;color:var(--cinza);margin:14px 0 4px;}
+input,select{
+  width:100%;padding:13px 12px;border:1px solid var(--cinza-claro);
+  border-radius:8px;font-size:16px;font-family:inherit;background:#fff;
+}
+button.primary{
+  background:var(--azul-noite);color:#fff;border:none;width:100%;
+  padding:15px 20px;border-radius:8px;font-size:16px;font-weight:700;
+  cursor:pointer;margin-top:16px;
+}
+button.primary:disabled{background:var(--cinza-claro);color:var(--cinza);cursor:not-allowed;}
+button.secondary{
+  background:#fff;color:var(--azul-noite);border:1px solid var(--azul-noite);width:100%;
+  padding:12px 16px;border-radius:8px;font-size:14px;cursor:pointer;margin-top:10px;
+}
+.badge{display:inline-block;padding:5px 14px;border-radius:20px;color:#fff;font-size:13px;font-weight:700;}
+.numero-grande{font-size:52px;font-weight:800;color:var(--azul-noite);line-height:1;text-align:center;}
+.nome-grande{font-size:22px;font-weight:700;text-align:center;margin:4px 0 10px;}
+.alerta-box{background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;padding:12px 14px;border-radius:8px;font-size:14px;margin:12px 0;font-weight:600;text-align:center;}
+.ok-box{background:#F0FDF4;border:1px solid #86EFAC;color:#166534;padding:12px 14px;border-radius:8px;font-size:14px;margin:12px 0;text-align:center;}
+.small-note{font-size:12px;color:var(--cinza);margin-top:6px;line-height:1.5;}
+.center{text-align:center;}
+.day-label{
+  display:inline-block;background:var(--azul-medio);color:#fff;padding:6px 16px;
+  border-radius:20px;font-size:13px;font-weight:600;margin-bottom:4px;
+}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:girar .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes girar{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Escola Bíblica de Férias</h1>
+  <p>Check-in do responsável</p>
+</header>
+
+<main>
+
+<div class="card center">
+  <div class="day-label" id="diaLabel">—</div>
+</div>
+
+<div class="card" id="etapaBusca">
+  <label>Nome completo da criança</label>
+  <input type="text" id="inpNome" placeholder="Digite o nome completo" autocomplete="off">
+
+  <label>Data de nascimento da criança <span style="font-weight:400;">(se for o primeiro dia dela no evento)</span></label>
+  <input type="date" id="inpDataNascimento">
+
+  <label>OU a palavra secreta combinada <span style="font-weight:400;">(se ela já fez check-in em outro dia)</span></label>
+  <input type="text" id="inpPalavraSecreta" placeholder="Digite a palavra secreta" autocomplete="off">
+
+  <div class="small-note">Preencha a data de nascimento <b>ou</b> a palavra secreta — não precisa das duas.</div>
+
+  <div id="buscaErro"></div>
+  <button class="primary" id="btnBuscar">Continuar</button>
+</div>
+
+<div class="card hidden" id="etapaConfirmar">
+  <div class="numero-grande" id="confNumero">#000</div>
+  <div class="nome-grande" id="confNome">Nome</div>
+  <div class="center" style="margin-bottom:10px;">
+    <span class="badge" id="confCorBadge">cor</span>
+  </div>
+
+  <div id="jaConfirmadoBox"></div>
+
+  <div id="primeiraVezBox" class="hidden">
+    <label>Nome do responsável *</label>
+    <input type="text" id="confResponsavel" autocomplete="off">
+    <label>Telefone do responsável *</label>
+    <input type="text" id="confTelefone" autocomplete="off">
+    <label>Crie uma palavra secreta * <span style="font-weight:400;">(vai ser pedida na hora de buscar a criança — não esqueça!)</span></label>
+    <input type="text" id="confNovaPalavra" autocomplete="off">
+  </div>
+
+  <div id="confirmarErro"></div>
+  <button class="primary" id="btnConfirmar">Confirmar presença</button>
+  <button class="secondary" id="btnVoltar">Voltar / buscar outra criança</button>
+</div>
+
+<div class="card hidden" id="etapaSucesso">
+  <div class="ok-box">✅ Check-in confirmado!</div>
+  <div class="numero-grande" id="sucessoNumero">#000</div>
+  <div class="nome-grande" id="sucessoNome">Nome</div>
+  <div class="center"><span class="badge" id="sucessoCorBadge">cor</span></div>
+  <p class="small-note center" id="sucessoMensagem"></p>
+  <button class="secondary" id="btnNovoCheckin">Fazer check-in de outra criança</button>
+</div>
+
+</main>
+
+<script>
+const WORKER_URL = 'https://checkin-ebf.kbomfa.workers.dev';
+const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07'];
+
+function obterDiaAtualPadrao(){
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  const anoAtual = hoje.getFullYear();
+  const datas = DATAS_EVENTO.map(str=>{
+    const [dia,mes] = str.split('/').map(Number);
+    return new Date(anoAtual, mes-1, dia, 0,0,0,0);
+  });
+  for(let i=0;i<datas.length;i++){ if(hoje.getTime()===datas[i].getTime()) return i+1; }
+  if(hoje < datas[0]) return 1;
+  if(hoje > datas[datas.length-1]) return datas.length;
+  for(let i=datas.length-1;i>=0;i--){ if(hoje > datas[i]) return i+1; }
+  return 1;
+}
+
+const diaAtual = obterDiaAtualPadrao();
+let ultimoResultado = null;
+
+document.getElementById('diaLabel').textContent = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+
+async function chamarApiPublica(caminho, corpo){
+  const res = await fetch(WORKER_URL.replace(/\/$/,'')+caminho, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(corpo)
+  });
+  const data = await res.json().catch(()=>({error:'Erro ao processar resposta.'}));
+  if(!res.ok) throw new Error(data.error || 'Erro desconhecido');
+  return data;
+}
+
+function setBotaoCarregando(btn, carregando, textoNormal){
+  btn.disabled = carregando;
+  btn.innerHTML = carregando ? '<span class="spinner"></span>Aguarde…' : textoNormal;
+}
+
+document.getElementById('btnBuscar').addEventListener('click', async ()=>{
+  const nome = document.getElementById('inpNome').value.trim();
+  const dataNascimento = document.getElementById('inpDataNascimento').value;
+  const palavraSecreta = document.getElementById('inpPalavraSecreta').value.trim();
+  const erroBox = document.getElementById('buscaErro');
+  erroBox.innerHTML = '';
+
+  if(!nome){ erroBox.innerHTML = '<div class="alerta-box">Digite o nome da criança.</div>'; return; }
+  if(!dataNascimento && !palavraSecreta){ erroBox.innerHTML = '<div class="alerta-box">Preencha a data de nascimento ou a palavra secreta.</div>'; return; }
+
+  const btn = document.getElementById('btnBuscar');
+  setBotaoCarregando(btn, true, 'Continuar');
+  try{
+    const dados = await chamarApiPublica('/publico/consultar', { nome, dataNascimento, palavraSecreta, dia: diaAtual });
+    ultimoResultado = dados;
+    mostrarEtapaConfirmar(dados);
+  }catch(e){
+    erroBox.innerHTML = `<div class="alerta-box">${e.message}</div>`;
+  }finally{
+    setBotaoCarregando(btn, false, 'Continuar');
+  }
+});
+
+function mostrarEtapaConfirmar(c){
+  document.getElementById('etapaBusca').classList.add('hidden');
+  document.getElementById('etapaConfirmar').classList.remove('hidden');
+  document.getElementById('confNumero').textContent = '#'+c.numero;
+  document.getElementById('confNome').textContent = c.nomeCompleto;
+  document.getElementById('confCorBadge').textContent = c.corPulseira;
+  document.getElementById('confCorBadge').style.background = corHexAproximado(c.corPulseira);
+
+  const jaBox = document.getElementById('jaConfirmadoBox');
+  const primeiraVezBox = document.getElementById('primeiraVezBox');
+  const btnConfirmar = document.getElementById('btnConfirmar');
+
+  if(c.jaConfirmadoHoje){
+    jaBox.innerHTML = '<div class="ok-box">A presença de hoje já foi confirmada.</div>';
+    primeiraVezBox.classList.add('hidden');
+    btnConfirmar.textContent = 'Confirmar novamente';
+  }else{
+    jaBox.innerHTML = '';
+    btnConfirmar.textContent = 'Confirmar presença';
+    if(c.primeiraVez){
+      primeiraVezBox.classList.remove('hidden');
+      document.getElementById('confResponsavel').value = c.nomeResponsavel || '';
+      document.getElementById('confTelefone').value = c.telefoneResponsavel || '';
+      document.getElementById('confNovaPalavra').value = '';
+    }else{
+      primeiraVezBox.classList.add('hidden');
+    }
+  }
+}
+
+function corHexAproximado(nome){
+  const mapa = { 'Branco':'#FFFFFF','Azul':'#2C5F8A','Vermelho':'#C13B3B','Verde':'#2E8B57','Amarelo':'#D8A227','Cinza':'#6B7280' };
+  return mapa[nome] || '#9CA3AF';
+}
+
+document.getElementById('btnConfirmar').addEventListener('click', async ()=>{
+  if(!ultimoResultado) return;
+  const erroBox = document.getElementById('confirmarErro');
+  erroBox.innerHTML = '';
+
+  const corpo = {
+    nome: document.getElementById('inpNome').value.trim(),
+    dataNascimento: document.getElementById('inpDataNascimento').value,
+    palavraSecreta: document.getElementById('inpPalavraSecreta').value.trim(),
+    dia: diaAtual
+  };
+
+  if(ultimoResultado.primeiraVez && !ultimoResultado.jaConfirmadoHoje){
+    const resp = document.getElementById('confResponsavel').value.trim();
+    const tel = document.getElementById('confTelefone').value.trim();
+    const novaSenha = document.getElementById('confNovaPalavra').value.trim();
+    if(!resp || !tel || !novaSenha){
+      erroBox.innerHTML = '<div class="alerta-box">Preencha nome do responsável, telefone e crie uma palavra secreta.</div>';
+      return;
+    }
+    corpo.nomeResponsavel = resp;
+    corpo.telefoneResponsavel = tel;
+    corpo.novaPalavraSecreta = novaSenha;
+  }
+
+  const btn = document.getElementById('btnConfirmar');
+  setBotaoCarregando(btn, true, 'Confirmar presença');
+  try{
+    const dados = await chamarApiPublica('/publico/confirmar', corpo);
+    mostrarSucesso(dados, corpo.novaPalavraSecreta);
+  }catch(e){
+    erroBox.innerHTML = `<div class="alerta-box">${e.message}</div>`;
+  }finally{
+    setBotaoCarregando(btn, false, 'Confirmar presença');
+  }
+});
+
+function mostrarSucesso(c, novaPalavra){
+  document.getElementById('etapaConfirmar').classList.add('hidden');
+  document.getElementById('etapaSucesso').classList.remove('hidden');
+  document.getElementById('sucessoNumero').textContent = '#'+c.numero;
+  document.getElementById('sucessoNome').textContent = c.nomeCompleto;
+  document.getElementById('sucessoCorBadge').textContent = c.corPulseira;
+  document.getElementById('sucessoCorBadge').style.background = corHexAproximado(c.corPulseira);
+  document.getElementById('sucessoMensagem').textContent = novaPalavra
+    ? ('Guarde a palavra secreta que você criou (' + novaPalavra + ') — vai ser pedida na hora de buscar a criança.')
+    : 'Guarde a palavra secreta combinada — vai ser pedida na hora de buscar a criança.';
+}
+
+document.getElementById('btnVoltar').addEventListener('click', reiniciar);
+document.getElementById('btnNovoCheckin').addEventListener('click', reiniciar);
+
+function reiniciar(){
+  document.getElementById('etapaBusca').classList.remove('hidden');
+  document.getElementById('etapaConfirmar').classList.add('hidden');
+  document.getElementById('etapaSucesso').classList.add('hidden');
+  document.getElementById('inpNome').value = '';
+  document.getElementById('inpDataNascimento').value = '';
+  document.getElementById('inpPalavraSecreta').value = '';
+  document.getElementById('buscaErro').innerHTML = '';
+  document.getElementById('confirmarErro').innerHTML = '';
+  ultimoResultado = null;
+}
+</script>
+</body>
+</html>
