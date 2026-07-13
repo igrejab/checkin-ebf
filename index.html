@@ -484,6 +484,19 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
   <p class="small-note"> </p>
   <div id="listaCoresFixas"></div>
 
+  <h3>Check-in dos pais (QR code)</h3>
+  <p class="small-note">Cartaz pronto pra imprimir e colar na entrada — os pais escaneiam, digitam o nome da criança e confirmam a presença sozinhos, sem precisar do código de acesso da equipe. Funciona junto com a página <code>publico.html</code> (precisa estar publicada no mesmo repositório do GitHub Pages).</p>
+  <button class="secondary" id="btnGerarCartazQr">Gerar cartaz com QR code</button>
+  <div id="cartazQrBox" class="hidden" style="margin-top:14px;">
+    <div id="cartazQrConteudo" style="text-align:center;border:2px dashed var(--azul-noite);border-radius:12px;padding:24px;">
+      <h2 style="margin:0 0 4px;color:var(--azul-noite);">Escola Bíblica de Férias</h2>
+      <p style="margin:0 0 16px;">Escaneie para fazer o check-in da sua criança</p>
+      <img id="cartazQrImagem" src="" alt="QR code" style="width:220px;height:220px;">
+      <p class="small-note" id="cartazQrUrl" style="word-break:break-all;"></p>
+    </div>
+    <button class="primary" id="btnImprimirCartazQr" style="width:100%;margin-top:10px;">Imprimir cartaz</button>
+  </div>
+
   <h3 style="color:var(--vermelho-alerta);">Zona de risco</h3>
   <p class="small-note">Apaga <b>permanentemente</b> todos os cadastros de crianças (presenças, retiradas, tudo).</p>
   <button class="secondary" id="btnApagarTudo" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);">Apagar todos os cadastros</button>
@@ -1702,6 +1715,21 @@ document.getElementById('btnTestarConexao').addEventListener('click', async ()=>
     if(res.ok){ box.innerHTML = '<div class="ok-box">✅ Conexão OK!</div>'; }
     else{ const e = await res.json(); box.innerHTML = `<div class="alerta-box">❌ ${e.error||res.status}</div>`; }
   }catch(e){ box.innerHTML = `<div class="alerta-box">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('btnGerarCartazQr').addEventListener('click', ()=>{
+  const urlPublica = window.location.href.replace(/[^/]*$/, '') + 'publico.html';
+  const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(urlPublica);
+  document.getElementById('cartazQrImagem').src = qrImgUrl;
+  document.getElementById('cartazQrUrl').textContent = urlPublica;
+  document.getElementById('cartazQrBox').classList.remove('hidden');
+});
+
+document.getElementById('btnImprimirCartazQr').addEventListener('click', ()=>{
+  document.getElementById('comprovanteImpressao').innerHTML = document.getElementById('cartazQrConteudo').outerHTML;
+  definirTamanhoPaginaImpressao(null);
+  document.body.classList.add('imprimindo-comprovante');
+  window.print();
 });
 
 document.getElementById('btnApagarTudo').addEventListener('click', ()=>{
