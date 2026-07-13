@@ -157,7 +157,10 @@ th{background:var(--areia);position:sticky;top:0;}
   <div id="selectedChildBox" class="hidden" style="margin-top:16px;border-top:1px solid var(--cinza-claro);padding-top:16px;">
     <div class="selected-header">
       <div class="numero-grande" id="selNumero">#000</div>
-      <span class="badge" id="selCorBadge">cor</span>
+      <div style="text-align:right;">
+        <div class="small-note" style="margin:0 0 2px;">Pulseira</div>
+        <span class="badge" id="selCorBadge" style="font-size:14px;padding:6px 16px;">cor</span>
+      </div>
     </div>
     <div style="font-size:20px;font-weight:700;" id="selNome">Nome</div>
     <div class="info-line">Idade: <b id="selIdade">-</b></div>
@@ -201,7 +204,7 @@ th{background:var(--areia);position:sticky;top:0;}
       <input type="text" id="cCpf" placeholder="000.000.000-00">
     </div>
     <div>
-      <label>Cor da equipe *</label>
+      <label>Cor da pulseira *</label>
       <select id="cCor"></select>
     </div>
   </div>
@@ -289,7 +292,7 @@ th{background:var(--areia);position:sticky;top:0;}
   <button class="secondary" id="btnTestarConexao">Testar conexão</button>
   <div id="testeResultado"></div>
 
-  <h3>Cores das equipes</h3>
+  <h3>Cores das pulseiras (equipes)</h3>
   <div id="listaCores"></div>
   <div class="row">
     <input type="text" id="novaCorNome" placeholder="Nome da cor (ex: Vermelho)">
@@ -468,7 +471,10 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
   const resultados = indexCache.filter(c=>c.nomeCompleto.toLowerCase().includes(termo)).slice(0,15);
   box.innerHTML = resultados.map(c=>`
     <div class="search-item" data-id="${c.id}">
-      <span><b>#${c.numero}</b> — ${c.nomeCompleto}</span>
+      <span>
+        <b>#${c.numero}</b> — ${c.nomeCompleto}
+        <div class="small-note" style="margin:2px 0 0;">${calcIdade(c.dataNascimento)} anos · resp.: ${c.nomeResponsavel||'-'}</div>
+      </span>
       <span class="badge" style="${badgeStyle(c.corEquipe)}">${c.corEquipe||'-'}</span>
     </div>`).join('') || '<div class="small-note" style="padding:10px;">Nenhuma criança encontrada</div>';
   box.querySelectorAll('.search-item').forEach(item=>{
@@ -483,7 +489,7 @@ async function selecionarCrianca(id){
     document.getElementById('selectedChildBox').classList.remove('hidden');
     document.getElementById('selNumero').textContent = '#'+c.numero;
     document.getElementById('selCorBadge').textContent = c.corEquipe || '-';
-    document.getElementById('selCorBadge').style.cssText = badgeStyle(c.corEquipe);
+    document.getElementById('selCorBadge').style.cssText = 'font-size:14px;padding:6px 16px;'+badgeStyle(c.corEquipe);
     document.getElementById('selNome').textContent = c.nomeCompleto;
     document.getElementById('selIdade').textContent = calcIdade(c.dataNascimento)+' anos';
 
@@ -514,8 +520,17 @@ async function selecionarCrianca(id){
     const statusBox = document.getElementById('presencaStatus');
     const btn = document.getElementById('btnConfirmarPresenca');
     if(jaConfirmado){
-      statusBox.innerHTML = `<div class="ok-box">✅ Presença já confirmada em ${dataLabel} às ${c.presencas[chaveDia].hora}</div>`;
+      statusBox.innerHTML = `<div class="ok-box">✅ Presença já confirmada em ${dataLabel} às ${c.presencas[chaveDia].hora}</div>
+        <button class="secondary" id="btnDesfazerPresenca" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);">Desfazer confirmação (marquei por engano)</button>`;
       btn.textContent = 'Reconfirmar presença';
+      document.getElementById('btnDesfazerPresenca').onclick = async ()=>{
+        if(!confirm(`Desfazer a confirmação de presença de ${c.nomeCompleto} em ${dataLabel}?`)) return;
+        try{
+          const atualizado = await apiCall('/child','PUT',{ id:c.id, presencas:{ [chaveDia]: {presente:false} } });
+          toast('Confirmação desfeita.');
+          selecionarCrianca(atualizado.id);
+        }catch(e){ toast('Erro: '+e.message); }
+      };
     }else{
       statusBox.innerHTML = '';
       btn.textContent = 'Confirmar presença — '+dataLabel;
@@ -589,10 +604,24 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
 // IMPORTAR CSV
 // ============================================================
 let csvParseado = [];
+// Lê o arquivo detectando a codificação certa: Excel no Windows costuma salvar CSV em
+// "Windows-1252/Latin1" em vez de UTF-8, o que faz acentos (ç, ã, õ) virarem símbolos estranhos.
+async function lerArquivoComCodificacaoCorreta(file){
+  const buffer = await file.arrayBuffer();
+  let texto = new TextDecoder('utf-8', {fatal:false}).decode(buffer);
+  // sinais típicos de "mojibake" (texto UTF-8 lido/salvo errado): sequências como Ã§, Ã£, Â, ou caractere de substituição
+  const pareceMojibake = /Ã[\x80-\xBF]|Â[\x80-\xBF]|\uFFFD/.test(texto);
+  if(pareceMojibake){
+    texto = new TextDecoder('windows-1252', {fatal:false}).decode(buffer);
+  }
+  // remove BOM se existir
+  return texto.replace(/^\uFEFF/, '');
+}
+
 document.getElementById('csvFile').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
-  document.getElementById('csvPaste').value = await file.text();
+  document.getElementById('csvPaste').value = await lerArquivoComCodificacaoCorreta(file);
 });
 
 function parseCsv(texto){
@@ -682,7 +711,8 @@ function renderAdminTabela(){
   tbody.innerHTML = lista.map(c=>{
     const dots = DIAS.map(d=>{
       const p = c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente;
-      return `<span class="presenca-dot ${p?'pd-sim':'pd-nao'}" title="${p? 'Presente às '+c.presencas['dia'+d].hora : 'Ausente'}">${p?'✓':'–'}</span>`;
+      const tituloClique = p ? 'Clique para desfazer esta confirmação' : 'Ausente';
+      return `<span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${p? 'Presente às '+c.presencas['dia'+d].hora+' — '+tituloClique : 'Ausente'}">${p?'✓':'–'}</span>`;
     }).join(' ');
     return `<tr>
       <td>#${c.numero}</td>
@@ -697,6 +727,18 @@ function renderAdminTabela(){
       <td><button class="danger" data-del="${c.id}">Excluir</button></td>
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('[data-undo-id]').forEach(dot=>{
+    dot.onclick = async ()=>{
+      const id = dot.dataset.undoId, dia = dot.dataset.undoDia;
+      const criancaNome = (todasCriancas.find(c=>c.id===id)||{}).nomeCompleto || '';
+      if(!confirm(`Desfazer a confirmação de presença de ${criancaNome} neste dia?`)) return;
+      try{
+        await apiCall('/child','PUT',{ id, presencas:{ [dia]: {presente:false} } });
+        toast('Confirmação desfeita.');
+        carregarAdmin();
+      }catch(e){ toast('Erro: '+e.message); }
+    };
+  });
   tbody.querySelectorAll('[data-del]').forEach(btn=>{
     btn.onclick = async ()=>{
       if(!confirm('Excluir este cadastro? Essa ação não pode ser desfeita.')) return;
