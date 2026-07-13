@@ -204,8 +204,8 @@ th{background:var(--areia);position:sticky;top:0;}
       <input type="text" id="cCpf" placeholder="000.000.000-00">
     </div>
     <div>
-      <label>Cor da pulseira *</label>
-      <select id="cCor"></select>
+      <label>Pulseira (automática pela idade)</label>
+      <div id="cCorPreview" style="padding:11px 12px;">—</div>
     </div>
   </div>
   <label>Alergia / restrição alimentar / condição de saúde</label>
@@ -230,13 +230,16 @@ th{background:var(--areia);position:sticky;top:0;}
 <section id="tab-importar" class="card hidden">
   <h2 style="margin-top:0;">Importar lista (CSV)</h2>
   <p class="small-note">
-    O CSV deve ter cabeçalho com estas colunas (nesta ordem), separadas por vírgula ou ponto-e-vírgula:<br>
-    <code>nomeCompleto,cpf,dataNascimento,alergiaRestricao,nomeResponsavel,telefoneResponsavel,corEquipe,observacoes</code><br>
-    dataNascimento no formato AAAA-MM-DD. Os campos cpf, alergiaRestricao e observacoes podem ficar vazios.
+    O CSV precisa ter uma linha de cabeçalho. A ordem das colunas não importa — o sistema
+    reconhece pelo nome (com ou sem acento, maiúsculas/minúsculas). Nomes aceitos: <br>
+    <code>Nome Completo, CPF, Data de Nascimento, Alergia/Restrição, Nome do Responsável, Telefone do Responsável, Observações</code><br>
+    Data de nascimento pode estar em <b>AAAA-MM-DD</b> ou <b>DD/MM/AAAA</b>. A cor da pulseira é calculada
+    automaticamente pela idade — não precisa de coluna de cor. Se uma criança da lista já estiver
+    cadastrada (mesmo CPF ou mesmo nome), o cadastro dela é <b>atualizado</b>, não duplicado.
   </p>
   <input type="file" id="csvFile" accept=".csv">
   <div class="small-note">ou cole o conteúdo do CSV abaixo:</div>
-  <textarea id="csvPaste" placeholder="nomeCompleto,cpf,dataNascimento,alergiaRestricao,nomeResponsavel,telefoneResponsavel,corEquipe,observacoes" style="min-height:140px;"></textarea>
+  <textarea id="csvPaste" placeholder="Nome Completo;CPF;Data de Nascimento;Alergia;Nome do Responsável;Telefone do Responsável;Observações" style="min-height:140px;"></textarea>
   <button class="secondary" id="btnPreview">Pré-visualizar</button>
   <div id="csvPreview"></div>
   <button class="primary hidden" id="btnImportar">Confirmar importação</button>
@@ -292,23 +295,9 @@ th{background:var(--areia);position:sticky;top:0;}
   <button class="secondary" id="btnTestarConexao">Testar conexão</button>
   <div id="testeResultado"></div>
 
-  <h3>Cores das pulseiras (equipes)</h3>
-  <div id="listaCores"></div>
-  <div class="row">
-    <input type="text" id="novaCorNome" placeholder="Nome da cor (ex: Vermelho)">
-    <input type="color" id="novaCorHex" value="#C13B3B" style="max-width:60px;">
-    <button class="secondary" id="btnAddCor">Adicionar</button>
-  </div>
-
-  <h3>Atribuição de cor por idade <span style="font-weight:400;font-size:13px;color:var(--cinza);">(opcional)</span></h3>
-  <p class="small-note">Defina as faixas de idade de cada equipe. Ao cadastrar ou importar uma criança sem cor definida, o sistema sugere a cor automaticamente com base na idade calculada pela data de nascimento. Você pode sempre trocar manualmente.</p>
-  <div id="listaFaixas"></div>
-  <div class="row">
-    <input type="number" id="faixaMin" placeholder="Idade mínima" min="0">
-    <input type="number" id="faixaMax" placeholder="Idade máxima" min="0">
-    <select id="faixaCor"></select>
-    <button class="secondary" id="btnAddFaixa">Adicionar faixa</button>
-  </div>
+  <h3>Cores das pulseiras</h3>
+  <p class="small-note">A cor é calculada automaticamente pela idade da criança — não precisa configurar nada aqui. Regra atual:</p>
+  <div id="listaCoresFixas"></div>
 </section>
 
 </main>
@@ -320,11 +309,17 @@ th{background:var(--areia);position:sticky;top:0;}
 const DIAS = [1,2,3,4,5];
 const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07']; // ajuste aqui se as datas mudarem
 let CONFIG = JSON.parse(localStorage.getItem('ebf_config') || '{}');
-let coresConfig = { cores: [
-  {nome:'Vermelho', hex:'#C13B3B'}, {nome:'Verde', hex:'#2E8B57'},
-  {nome:'Azul', hex:'#2C5F8A'}, {nome:'Amarelo', hex:'#D8A227'},
-  {nome:'Cinza', hex:'#6B7280'}, {nome:'Branco', hex:'#FFFFFF'}
-], faixas: [] }; // faixas: [{min:0,max:5,cor:'Amarelo'}, ...] — configurável na aba Configurações
+
+// Cor da pulseira é sempre calculada pela idade — mesma regra usada no worker.js.
+// Ajuste aqui se as faixas mudarem (e também em worker.js, na constante CORES_POR_IDADE).
+const CORES_POR_IDADE = {
+  4:{nome:'Branco', hex:'#FFFFFF'}, 5:{nome:'Azul', hex:'#2C5F8A'},
+  6:{nome:'Vermelho', hex:'#C13B3B'}, 7:{nome:'Verde', hex:'#2E8B57'},
+  8:{nome:'Amarelo', hex:'#D8A227'}, 9:{nome:'Preto', hex:'#1F2937'}, 10:{nome:'Preto', hex:'#1F2937'}
+};
+function corPorIdade(idade){
+  return CORES_POR_IDADE[idade] || {nome:'-', hex:'#9CA3AF'};
+}
 
 function corTextColor(hex){
   const c = (hex||'#6B7280').replace('#','');
@@ -333,14 +328,10 @@ function corTextColor(hex){
   return lum>0.65 ? '#1F2937' : '#FFFFFF';
 }
 function badgeStyle(nomeCor){
-  const hex = corHex(nomeCor);
+  const entrada = Object.values(CORES_POR_IDADE).find(c=>c.nome===nomeCor);
+  const hex = entrada ? entrada.hex : '#9CA3AF';
   const borda = hex.toUpperCase()==='#FFFFFF' ? ';border:1px solid #C9C9C9' : '';
   return `background:${hex};color:${corTextColor(hex)}${borda}`;
-}
-function sugerirCorPorIdade(idade){
-  if(idade==null || !coresConfig.faixas || !coresConfig.faixas.length) return null;
-  const f = coresConfig.faixas.find(f=> idade>=Number(f.min) && idade<=Number(f.max));
-  return f ? f.cor : null;
 }
 let indexCache = [];
 let diaAtual = 1;
@@ -379,11 +370,6 @@ function calcIdade(dataNasc){
   return idade;
 }
 
-function corHex(nomeCor){
-  const c = coresConfig.cores.find(c=>c.nome===nomeCor);
-  return c ? c.hex : '#6B7280';
-}
-
 // ============================================================
 // NAVEGAÇÃO
 // ============================================================
@@ -411,6 +397,8 @@ async function init(){
     const opt = document.querySelector(`#adminDayFilter option[value="dia${d}"]`);
     if(opt) opt.textContent = 'Presentes — '+DATAS_EVENTO[i];
   });
+  renderFiltroCor();
+  renderListaCoresFixas();
 
   if(!CONFIG.workerUrl || !CONFIG.accessCode){
     document.getElementById('connStatus').textContent = '⚠️ configure o Worker na aba Configurações';
@@ -420,28 +408,21 @@ async function init(){
   }
 
   try{
-    coresConfig = await apiCall('/config');
-    if(!coresConfig.cores || !coresConfig.cores.length){
-      coresConfig = { cores: [
-        {nome:'Vermelho', hex:'#C13B3B'}, {nome:'Azul', hex:'#2C5F8A'},
-        {nome:'Verde', hex:'#2E8B57'}, {nome:'Amarelo', hex:'#D8A227'},
-        {nome:'Roxo', hex:'#7C4DA8'}, {nome:'Laranja', hex:'#E07A2D'}
-      ]};
-    }
-    // compat: config antiga pode ter só nomes (string)
-    coresConfig.cores = coresConfig.cores.map(c => typeof c==='string' ? {nome:c, hex:'#6B7280'} : c);
-    if(!coresConfig.faixas) coresConfig.faixas = [];
-
     indexCache = await apiCall('/index');
     document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
-    preencherSelectCores();
-    renderListaCores();
-    renderFiltroCor();
-    preencherSelectFaixaCor();
-    renderListaFaixas();
   }catch(e){
     document.getElementById('connStatus').textContent = '❌ falha na conexão: '+e.message;
   }
+}
+
+function renderListaCoresFixas(){
+  const box = document.getElementById('listaCoresFixas');
+  if(!box) return;
+  box.innerHTML = Object.entries(CORES_POR_IDADE).map(([idade,c])=>`
+    <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--cinza-claro);">
+      <span>${idade} anos</span>
+      <span class="badge" style="${badgeStyle(c.nome)}">${c.nome}</span>
+    </div>`).join('');
 }
 
 function montarSeletorDias(){
@@ -454,11 +435,6 @@ function montarSeletorDias(){
     b.onclick=()=>{ diaAtual=d; montarSeletorDias(); if(criancaSelecionada) selecionarCrianca(criancaSelecionada.id); };
     el.appendChild(b);
   });
-}
-
-function preencherSelectCores(){
-  const sel = document.getElementById('cCor');
-  sel.innerHTML = coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
 }
 
 // ============================================================
@@ -475,7 +451,7 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
         <b>#${c.numero}</b> — ${c.nomeCompleto}
         <div class="small-note" style="margin:2px 0 0;">${calcIdade(c.dataNascimento)} anos · resp.: ${c.nomeResponsavel||'-'}</div>
       </span>
-      <span class="badge" style="${badgeStyle(c.corEquipe)}">${c.corEquipe||'-'}</span>
+      <span class="badge" style="${badgeStyle(corPorIdade(calcIdade(c.dataNascimento)).nome)}">${corPorIdade(calcIdade(c.dataNascimento)).nome}</span>
     </div>`).join('') || '<div class="small-note" style="padding:10px;">Nenhuma criança encontrada</div>';
   box.querySelectorAll('.search-item').forEach(item=>{
     item.onclick = ()=> selecionarCrianca(item.dataset.id);
@@ -488,8 +464,9 @@ async function selecionarCrianca(id){
     criancaSelecionada = c;
     document.getElementById('selectedChildBox').classList.remove('hidden');
     document.getElementById('selNumero').textContent = '#'+c.numero;
-    document.getElementById('selCorBadge').textContent = c.corEquipe || '-';
-    document.getElementById('selCorBadge').style.cssText = 'font-size:14px;padding:6px 16px;'+badgeStyle(c.corEquipe);
+    const corDaCrianca = corPorIdade(calcIdade(c.dataNascimento)).nome;
+    document.getElementById('selCorBadge').textContent = corDaCrianca;
+    document.getElementById('selCorBadge').style.cssText = 'font-size:14px;padding:6px 16px;'+badgeStyle(corDaCrianca);
     document.getElementById('selNome').textContent = c.nomeCompleto;
     document.getElementById('selIdade').textContent = calcIdade(c.dataNascimento)+' anos';
 
@@ -570,17 +547,17 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
 // ============================================================
 document.getElementById('cNascimento').addEventListener('change', ()=>{
   const idade = calcIdade(document.getElementById('cNascimento').value);
-  const sugestao = sugerirCorPorIdade(idade);
-  if(sugestao) document.getElementById('cCor').value = sugestao;
+  const cor = corPorIdade(idade);
+  const preview = document.getElementById('cCorPreview');
+  preview.innerHTML = idade==null ? '—' : `${idade} anos → <span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span>`;
 });
 
 document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
   const nome = document.getElementById('cNome').value.trim();
   const responsavel = document.getElementById('cResponsavel').value.trim();
   const telefone = document.getElementById('cTelefone').value.trim();
-  const cor = document.getElementById('cCor').value;
-  if(!nome || !responsavel || !telefone || !cor){
-    toast('Preencha nome, responsável, telefone e cor.'); return;
+  if(!nome || !responsavel || !telefone){
+    toast('Preencha nome, responsável e telefone.'); return;
   }
   const payload = {
     nomeCompleto: nome,
@@ -589,20 +566,46 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
     alergiaRestricao: document.getElementById('cAlergia').value.trim(),
     nomeResponsavel: responsavel,
     telefoneResponsavel: telefone,
-    corEquipe: cor,
     observacoes: document.getElementById('cObs').value.trim()
   };
   try{
     const criada = await apiCall('/child','POST',payload);
-    indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, corEquipe:criada.corEquipe});
-    document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b></div>`;
+    indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, cpf:criada.cpf, dataNascimento:criada.dataNascimento, nomeResponsavel:criada.nomeResponsavel});
+    document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b> — pulseira ${corPorIdade(calcIdade(criada.dataNascimento)).nome}</div>`;
     ['cNome','cCpf','cNascimento','cAlergia','cResponsavel','cTelefone','cObs'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('cCorPreview').innerHTML = '—';
   }catch(e){ toast('Erro: '+e.message); }
 });
 
 // ============================================================
 // IMPORTAR CSV
 // ============================================================
+// Mapa de nomes de cabeçalho aceitos → campo interno (comparado já normalizado: sem acento, minúsculo)
+const MAPA_CABECALHO = {
+  'nome completo':'nomeCompleto', 'nome':'nomeCompleto', 'nomecompleto':'nomeCompleto', 'criança':'nomeCompleto', 'crianca':'nomeCompleto',
+  'cpf':'cpf',
+  'data de nascimento':'dataNascimento', 'data nascimento':'dataNascimento', 'nascimento':'dataNascimento', 'datanascimento':'dataNascimento',
+  'alergia':'alergiaRestricao', 'alergia/restricao':'alergiaRestricao', 'alergia restricao':'alergiaRestricao', 'restricao':'alergiaRestricao', 'alergiarestricao':'alergiaRestricao',
+  'nome do responsavel':'nomeResponsavel', 'responsavel':'nomeResponsavel', 'nomeresponsavel':'nomeResponsavel',
+  'telefone do responsavel':'telefoneResponsavel', 'telefone responsavel':'telefoneResponsavel', 'telefone':'telefoneResponsavel', 'celular':'telefoneResponsavel', 'telefoneresponsavel':'telefoneResponsavel',
+  'observacoes':'observacoes', 'observacao':'observacoes', 'obs':'observacoes',
+  'idade':'_ignorar', // idade é calculada, não usamos o que vier na planilha
+};
+
+function normalizarCabecalho(txt){
+  return (txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
+
+// Aceita AAAA-MM-DD (já correto) ou DD/MM/AAAA (comum em planilhas brasileiras)
+function normalizarData(txt){
+  if(!txt) return '';
+  txt = txt.trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt;
+  const m = txt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return txt;
+}
+
 let csvParseado = [];
 // Lê o arquivo detectando a codificação certa: Excel no Windows costuma salvar CSV em
 // "Windows-1252/Latin1" em vez de UTF-8, o que faz acentos (ç, ã, õ) virarem símbolos estranhos.
@@ -627,18 +630,18 @@ document.getElementById('csvFile').addEventListener('change', async (e)=>{
 function parseCsv(texto){
   const linhas = texto.trim().split(/\r?\n/).filter(l=>l.trim());
   if(linhas.length<2) return [];
-  const sep = linhas[0].includes(';') ? ';' : ',';
-  const cabecalho = linhas[0].split(sep).map(h=>h.trim());
-  const campos = ['nomeCompleto','cpf','dataNascimento','alergiaRestricao','nomeResponsavel','telefoneResponsavel','corEquipe','observacoes'];
+  const sep = (linhas[0].match(/;/g)||[]).length >= (linhas[0].match(/,/g)||[]).length ? ';' : ',';
+  const cabecalhoBruto = linhas[0].split(sep).map(h=>h.trim());
+  const colunas = cabecalhoBruto.map(h => MAPA_CABECALHO[normalizarCabecalho(h)] || null);
+
   return linhas.slice(1).map(linha=>{
     const valores = linha.split(sep).map(v=>v.trim());
-    const obj = {};
-    campos.forEach((c,i)=> obj[c]=valores[i]||'');
-    if(!obj.corEquipe){
-      const idade = calcIdade(obj.dataNascimento);
-      const sugestao = sugerirCorPorIdade(idade);
-      if(sugestao) obj.corEquipe = sugestao;
-    }
+    const obj = { nomeCompleto:'', cpf:'', dataNascimento:'', alergiaRestricao:'', nomeResponsavel:'', telefoneResponsavel:'', observacoes:'' };
+    colunas.forEach((campo,i)=>{
+      if(!campo || campo==='_ignorar') return;
+      obj[campo] = (valores[i]||'').trim();
+    });
+    obj.dataNascimento = normalizarData(obj.dataNascimento);
     return obj;
   }).filter(o=>o.nomeCompleto);
 }
@@ -647,10 +650,14 @@ document.getElementById('btnPreview').addEventListener('click', ()=>{
   const texto = document.getElementById('csvPaste').value;
   csvParseado = parseCsv(texto);
   const box = document.getElementById('csvPreview');
-  if(!csvParseado.length){ box.innerHTML='<div class="alerta-box">Nenhuma linha válida encontrada.</div>'; return; }
+  if(!csvParseado.length){ box.innerHTML='<div class="alerta-box">Nenhuma linha válida encontrada. Confira se a primeira linha é o cabeçalho com os nomes das colunas.</div>'; return; }
   box.innerHTML = `<p class="small-note">${csvParseado.length} crianças prontas para importar. Prévia das 5 primeiras:</p>
-    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Nasc.</th><th>Responsável</th><th>Telefone</th><th>Cor</th></tr></thead>
-    <tbody>${csvParseado.slice(0,5).map(c=>`<tr><td>${c.nomeCompleto}</td><td>${c.dataNascimento}</td><td>${c.nomeResponsavel}</td><td>${c.telefoneResponsavel}</td><td>${c.corEquipe}</td></tr>`).join('')}</tbody></table></div>`;
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Nasc.</th><th>Idade</th><th>Pulseira</th><th>Responsável</th><th>Telefone</th></tr></thead>
+    <tbody>${csvParseado.slice(0,5).map(c=>{
+      const idade = calcIdade(c.dataNascimento);
+      const cor = corPorIdade(idade);
+      return `<tr><td>${c.nomeCompleto}</td><td>${c.dataNascimento||'-'}</td><td>${idade!=null?idade:'-'}</td><td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td><td>${c.nomeResponsavel||'-'}</td><td>${c.telefoneResponsavel||'-'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
   document.getElementById('btnImportar').classList.remove('hidden');
 });
 
@@ -658,7 +665,7 @@ document.getElementById('btnImportar').addEventListener('click', async ()=>{
   if(!csvParseado.length) return;
   try{
     const r = await apiCall('/child/import','POST',{children:csvParseado});
-    toast('✅ '+r.importadas+' crianças importadas!');
+    toast(`✅ ${r.importadas} novas · ${r.atualizadas} atualizadas`);
     indexCache = await apiCall('/index');
     document.getElementById('csvPreview').innerHTML='';
     document.getElementById('csvPaste').value='';
@@ -690,7 +697,8 @@ function renderAdminStats(){
 
 function renderFiltroCor(){
   const sel = document.getElementById('adminCorFilter');
-  sel.innerHTML = '<option value="">Todas as cores</option>' + coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+  const nomesUnicos = [...new Set(Object.values(CORES_POR_IDADE).map(c=>c.nome))];
+  sel.innerHTML = '<option value="">Todas as cores</option>' + nomesUnicos.map(nome=>`<option value="${nome}">${nome}</option>`).join('');
 }
 
 function filtrarCriancas(){
@@ -700,7 +708,7 @@ function filtrarCriancas(){
   return todasCriancas.filter(c=>{
     if(termo && !(c.nomeCompleto.toLowerCase().includes(termo) || String(c.numero).includes(termo) || (c.nomeResponsavel||'').toLowerCase().includes(termo))) return false;
     if(diaFiltro && !(c.presencas && c.presencas[diaFiltro] && c.presencas[diaFiltro].presente)) return false;
-    if(corFiltro && c.corEquipe!==corFiltro) return false;
+    if(corFiltro && corPorIdade(c.idade).nome!==corFiltro) return false;
     return true;
   });
 }
@@ -709,17 +717,20 @@ function renderAdminTabela(){
   const lista = filtrarCriancas();
   const tbody = document.getElementById('adminTableBody');
   tbody.innerHTML = lista.map(c=>{
-    const dots = DIAS.map(d=>{
+    const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento));
+    // uma célula <td> PARA CADA dia (o header tem 5 colunas separadas — aqui também precisa ter 5)
+    const celulasDias = DIAS.map(d=>{
       const p = c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente;
-      const tituloClique = p ? 'Clique para desfazer esta confirmação' : 'Ausente';
-      return `<span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${p? 'Presente às '+c.presencas['dia'+d].hora+' — '+tituloClique : 'Ausente'}">${p?'✓':'–'}</span>`;
-    }).join(' ');
+      return `<td>
+        <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${p? 'Presente às '+c.presencas['dia'+d].hora+' — clique para desfazer' : 'Ausente'}">${p?'✓':'–'}</span>
+      </td>`;
+    }).join('');
     return `<tr>
       <td>#${c.numero}</td>
       <td>${c.nomeCompleto}</td>
       <td>${c.idade!=null?c.idade:calcIdade(c.dataNascimento)}</td>
-      <td><span class="badge" style="${badgeStyle(c.corEquipe)}">${c.corEquipe||'-'}</span></td>
-      <td>${dots}</td>
+      <td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td>
+      ${celulasDias}
       <td>${c.nomeResponsavel||'-'}</td>
       <td>${c.telefoneResponsavel||'-'}</td>
       <td>${c.alergiaRestricao? '⚠️ '+c.alergiaRestricao : '-'}</td>
@@ -757,11 +768,12 @@ document.getElementById('adminCorFilter').addEventListener('change', renderAdmin
 
 document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const lista = filtrarCriancas();
-  const campos = ['numero','nomeCompleto','idade','corEquipe','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes','dia1','dia2','dia3','dia4','dia5'];
+  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes','dia1','dia2','dia3','dia4','dia5'];
   const linhas = [campos.join(';')];
   lista.forEach(c=>{
     const dias = DIAS.map(d=> (c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente) ? 'presente' : '');
-    linhas.push([c.numero,c.nomeCompleto,c.idade,c.corEquipe,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...dias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
+    const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento)).nome;
+    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...dias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
   });
   const blob = new Blob(['\ufeff'+linhas.join('\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
@@ -797,90 +809,10 @@ document.getElementById('btnTestarConexao').addEventListener('click', async ()=>
   const box = document.getElementById('testeResultado');
   box.innerHTML = 'Testando…';
   try{
-    const res = await fetch(url.replace(/\/$/,'')+'/config', { headers:{'X-Access-Code':code} });
+    const res = await fetch(url.replace(/\/$/,'')+'/index', { headers:{'X-Access-Code':code} });
     if(res.ok){ box.innerHTML = '<div class="ok-box">✅ Conexão OK!</div>'; }
     else{ const e = await res.json(); box.innerHTML = `<div class="alerta-box">❌ ${e.error||res.status}</div>`; }
   }catch(e){ box.innerHTML = `<div class="alerta-box">❌ ${e.message}</div>`; }
-});
-
-function renderListaCores(){
-  const box = document.getElementById('listaCores');
-  box.innerHTML = coresConfig.cores.map((c,i)=>`
-    <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--cinza-claro);">
-      <span><span class="badge" style="background:${c.hex}">${c.nome}</span></span>
-      <button class="danger" data-idx="${i}">Remover</button>
-    </div>`).join('');
-  box.querySelectorAll('[data-idx]').forEach(btn=>{
-    btn.onclick = async ()=>{
-      coresConfig.cores.splice(Number(btn.dataset.idx),1);
-      await apiCall('/config','PUT',coresConfig);
-      renderListaCores(); preencherSelectCores(); renderFiltroCor();
-    };
-  });
-}
-
-document.getElementById('btnAddCor').addEventListener('click', async ()=>{
-  const nome = document.getElementById('novaCorNome').value.trim();
-  const hex = document.getElementById('novaCorHex').value;
-  if(!nome) return;
-  coresConfig.cores.push({nome, hex});
-  try{
-    await apiCall('/config','PUT',coresConfig);
-    document.getElementById('novaCorNome').value='';
-    renderListaCores(); preencherSelectCores(); renderFiltroCor(); preencherSelectFaixaCor();
-    toast('Cor adicionada.');
-  }catch(e){ toast('Erro: '+e.message); }
-});
-
-// ============================================================
-// FAIXAS ETÁRIAS → COR
-// ============================================================
-function preencherSelectFaixaCor(){
-  const sel = document.getElementById('faixaCor');
-  if(!sel) return;
-  sel.innerHTML = coresConfig.cores.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
-}
-
-function renderListaFaixas(){
-  const box = document.getElementById('listaFaixas');
-  if(!box) return;
-  if(!coresConfig.faixas || !coresConfig.faixas.length){
-    box.innerHTML = '<div class="small-note">Nenhuma faixa configurada ainda — a cor precisa ser escolhida manualmente por enquanto.</div>';
-    return;
-  }
-  box.innerHTML = coresConfig.faixas
-    .slice()
-    .sort((a,b)=>Number(a.min)-Number(b.min))
-    .map((f,i)=>`
-    <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--cinza-claro);">
-      <span>${f.min} a ${f.max} anos → <span class="badge" style="${badgeStyle(f.cor)}">${f.cor}</span></span>
-      <button class="danger" data-fidx="${i}">Remover</button>
-    </div>`).join('');
-  box.querySelectorAll('[data-fidx]').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const ordenadas = coresConfig.faixas.slice().sort((a,b)=>Number(a.min)-Number(b.min));
-      const alvo = ordenadas[Number(btn.dataset.fidx)];
-      coresConfig.faixas = coresConfig.faixas.filter(f=>f!==alvo);
-      await apiCall('/config','PUT',coresConfig);
-      renderListaFaixas();
-    };
-  });
-}
-
-document.getElementById('btnAddFaixa').addEventListener('click', async ()=>{
-  const min = document.getElementById('faixaMin').value;
-  const max = document.getElementById('faixaMax').value;
-  const cor = document.getElementById('faixaCor').value;
-  if(min===''||max===''||!cor){ toast('Preencha idade mínima, máxima e a cor.'); return; }
-  if(!coresConfig.faixas) coresConfig.faixas = [];
-  coresConfig.faixas.push({min:Number(min), max:Number(max), cor});
-  try{
-    await apiCall('/config','PUT',coresConfig);
-    document.getElementById('faixaMin').value='';
-    document.getElementById('faixaMax').value='';
-    renderListaFaixas();
-    toast('Faixa adicionada.');
-  }catch(e){ toast('Erro: '+e.message); }
 });
 
 init();
