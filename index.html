@@ -389,11 +389,15 @@ th{background:var(--areia);position:sticky;top:0;}
 <!-- ===================== TAB: RELATÓRIO ===================== -->
 <section id="tab-relatorio" class="card hidden">
   <div class="flex-between" style="margin-bottom:10px;">
-    <h2 style="margin:0;">Relatório Geral</h2>
+    <h2 style="margin:0;">Relatório</h2>
     <div style="display:flex;gap:8px;">
       <button class="secondary" id="btnAtualizarRelatorio">🔄 Atualizar</button>
       <button class="primary" id="btnImprimirRelatorio">🖨️ Imprimir</button>
     </div>
+  </div>
+  <div class="day-selector" id="modoRelatorioSelector">
+    <button class="day-btn active" id="btnModoDia">📅 Relatório do Dia</button>
+    <button class="day-btn" id="btnModoEvento">📊 Relatório do Evento (todos os dias)</button>
   </div>
   <div id="relatorioConteudo"><p class="small-note">Carregando…</p></div>
 </section>
@@ -1187,51 +1191,74 @@ function hexPorNomeCor(nome){
   return entrada ? entrada.hex : '#9CA3AF';
 }
 
+let modoRelatorio = 'dia';
+let dadosRelatorioCache = null;
+
 async function carregarRelatorio(){
   const box = document.getElementById('relatorioConteudo');
   box.innerHTML = '<p class="small-note">Carregando…</p>';
-  let dados;
   try{
-    dados = await apiCall('/children/all');
+    dadosRelatorioCache = await apiCall('/children/all');
   }catch(e){
     box.innerHTML = `<div class="alerta-box">Erro ao carregar dados: ${e.message}</div>`;
     return;
   }
-  box.innerHTML = montarRelatorioHtml(dados);
+  renderizarRelatorio();
 }
 
-function montarRelatorioHtml(dados){
+function renderizarRelatorio(){
+  if(!dadosRelatorioCache) return;
+  const box = document.getElementById('relatorioConteudo');
+  box.innerHTML = modoRelatorio==='dia' ? montarRelatorioDiaHtml(dadosRelatorioCache) : montarRelatorioEventoHtml(dadosRelatorioCache);
+}
+
+document.getElementById('btnModoDia').addEventListener('click', ()=>{
+  modoRelatorio='dia';
+  document.getElementById('btnModoDia').classList.add('active');
+  document.getElementById('btnModoEvento').classList.remove('active');
+  renderizarRelatorio();
+});
+document.getElementById('btnModoEvento').addEventListener('click', ()=>{
+  modoRelatorio='evento';
+  document.getElementById('btnModoEvento').classList.add('active');
+  document.getElementById('btnModoDia').classList.remove('active');
+  renderizarRelatorio();
+});
+
+function montarRelatorioDiaHtml(dados){
   const total = dados.length;
   const agora = new Date();
   const dataHoraGerado = agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 
-  // --- presença por dia ---
-  const presentesPorDia = DIAS.map(d => dados.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
-  const retiradasPorDia = DIAS.map(d => dados.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].retirada && c.presencas['dia'+d].retirada.liberado).length);
-  const maxPresentes = Math.max(1, ...presentesPorDia);
+  // --- dia de referência (o mesmo selecionado na aba Check-in) ---
+  const chaveHoje = 'dia'+diaAtual;
+  const dataHojeLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  const presentesHojeLista = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].presente);
+  const presentesHoje = presentesHojeLista.length;
+  const retiradasHoje = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].retirada && c.presencas[chaveHoje].retirada.liberado).length;
 
-  // --- distribuição por idade (4 a 10, e "outras" fora da faixa) ---
+  // --- idade + cor da pulseira, só de quem está presente HOJE (útil pra lanche/atividades do dia) ---
   const idadesFaixa = [4,5,6,7,8,9,10];
-  const porIdade = idadesFaixa.map(i => dados.filter(c=>calcIdade(c.dataNascimento)===i).length);
-  const outrasIdades = dados.filter(c=>{
+  const porIdade = idadesFaixa.map(i => presentesHojeLista.filter(c=>calcIdade(c.dataNascimento)===i).length);
+  const outrasIdades = presentesHojeLista.filter(c=>{
     const i = calcIdade(c.dataNascimento);
     return i==null || !idadesFaixa.includes(i);
   }).length;
   const maxIdade = Math.max(1, ...porIdade, outrasIdades);
 
-  // --- distribuição por cor/pulseira ---
-  const nomesCores = [...new Set(Object.values(CORES_POR_IDADE).map(c=>c.nome))];
-  const porCor = nomesCores.map(nome => dados.filter(c=>corPorIdade(calcIdade(c.dataNascimento)).nome===nome).length);
-  const maxCor = Math.max(1, ...porCor);
-
-  // --- alergias / restrições (importante pro lanche) ---
-  const comAlergia = dados.filter(c=>c.alergiaRestricao && c.alergiaRestricao.trim());
-
-  // --- presença/retirada de hoje (usa o dia selecionado no check-in, diaAtual) ---
-  const chaveHoje = 'dia'+diaAtual;
-  const dataHojeLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
-  const presentesHoje = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].presente).length;
-  const retiradasHoje = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].retirada && c.presencas[chaveHoje].retirada.liberado).length;
+  // --- alergias / restrições agrupadas por tipo, só de quem está presente HOJE ---
+  const normalizarTexto = (txt) => (txt||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  const gruposAlergia = {};
+  presentesHojeLista.forEach(c=>{
+    const texto = (c.alergiaRestricao||'').trim();
+    if(!texto) return; // sem alergia/restrição → não entra no relatório
+    const chave = normalizarTexto(texto);
+    if(!gruposAlergia[chave]) gruposAlergia[chave] = { texto, qtd:0 };
+    gruposAlergia[chave].qtd++;
+  });
+  const listaGruposAlergia = Object.values(gruposAlergia).sort((a,b)=>b.qtd-a.qtd);
+  const totalComAlergia = listaGruposAlergia.reduce((s,g)=>s+g.qtd,0);
+  const maxAlergia = Math.max(1, ...listaGruposAlergia.map(g=>g.qtd));
 
   const linhaBarras = (label, valor, max, cor, extra='') => {
     const corTexto = corTextColor(cor);
@@ -1245,15 +1272,68 @@ function montarRelatorioHtml(dados){
 
   return `
     <div class="report-header">
-      <h2>📋 Escola Bíblica de Férias — Relatório Geral</h2>
-      <p class="small-note">Gerado em ${dataHoraGerado} · Referência do dia: ${dataHojeLabel}</p>
+      <h2>📋 Relatório do Dia — ${dataHojeLabel}</h2>
+      <p class="small-note">Gerado em ${dataHoraGerado}</p>
     </div>
 
     <div class="report-grid">
-      <div class="report-stat"><div class="num">${total}</div><div class="lbl">Crianças cadastradas</div></div>
-      <div class="report-stat" style="border-top-color:var(--verde-ok);"><div class="num">${presentesHoje}</div><div class="lbl">Presentes em ${dataHojeLabel}</div></div>
-      <div class="report-stat" style="border-top-color:var(--azul-medio);"><div class="num">${retiradasHoje}</div><div class="lbl">Já retiradas em ${dataHojeLabel}</div></div>
-      <div class="report-stat" style="border-top-color:var(--vermelho-alerta);"><div class="num">${comAlergia.length}</div><div class="lbl">Com alergia/restrição</div></div>
+      <div class="report-stat"><div class="num">${total}</div><div class="lbl">Crianças cadastradas (total)</div></div>
+      <div class="report-stat" style="border-top-color:var(--verde-ok);"><div class="num">${presentesHoje}</div><div class="lbl">Presentes hoje</div></div>
+      <div class="report-stat" style="border-top-color:var(--azul-medio);"><div class="num">${retiradasHoje}</div><div class="lbl">Já retiradas hoje</div></div>
+      <div class="report-stat" style="border-top-color:var(--vermelho-alerta);"><div class="num">${totalComAlergia}</div><div class="lbl">Presentes hoje com alergia/restrição</div></div>
+    </div>
+
+    <div class="report-section-title">Presentes hoje por idade / pulseira <span class="small-note" style="font-weight:400;">(útil para separar turmas e porções do lanche)</span></div>
+    ${presentesHoje===0 ? '<p class="small-note">Nenhuma criança presente ainda hoje.</p>' : `
+      ${idadesFaixa.map((idade,i)=> linhaBarras(idade+' anos — '+corPorIdade(idade).nome, porIdade[i], maxIdade, hexPorNomeCor(corPorIdade(idade).nome))).join('')}
+      ${outrasIdades>0 ? linhaBarras('Idade não definida', outrasIdades, maxIdade, '#9CA3AF') : ''}
+    `}
+
+    <div class="report-section-title">Alergias e restrições — presentes hoje <span class="small-note" style="font-weight:400;">(resumo por tipo — ${totalComAlergia} crianças)</span></div>
+    ${listaGruposAlergia.length ? listaGruposAlergia.map(g=> linhaBarras(g.texto, g.qtd, maxAlergia, 'var(--vermelho-alerta)', ' criança'+(g.qtd>1?'s':''))).join('') : '<p class="small-note">Nenhuma alergia ou restrição entre as crianças presentes hoje.</p>'}
+    ${listaGruposAlergia.length ? '<p class="small-note" style="margin-top:8px;">Agrupado pelo texto exato digitado no cadastro — se a mesma restrição foi escrita de formas diferentes (ex: "lactose" e "alergia a lactose"), pode aparecer em linhas separadas.</p>' : ''}
+  `;
+}
+
+// Relatório final do evento: compara os 5 dias, só presença por idade (sem alergia —
+// alergia é uma característica da criança, não varia por dia, então não faz sentido "agrupar por dia")
+function montarRelatorioEventoHtml(dados){
+  const total = dados.length;
+  const agora = new Date();
+  const dataHoraGerado = agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  const presentesPorDia = DIAS.map(d => dados.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
+  const retiradasPorDia = DIAS.map(d => dados.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].retirada && c.presencas['dia'+d].retirada.liberado).length);
+  const maxPresentes = Math.max(1, ...presentesPorDia);
+
+  const idadesFaixa = [4,5,6,7,8,9,10];
+  // matriz: para cada idade, quantos presentes em cada um dos 5 dias
+  const matrizIdadeDia = idadesFaixa.map(idade => {
+    const criancasDaIdade = dados.filter(c=>calcIdade(c.dataNascimento)===idade);
+    return DIAS.map(d => criancasDaIdade.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
+  });
+  // quantas crianças presentes em pelo menos 1 dia tem idade fora da faixa 4-10
+  const criancasForaFaixa = dados.filter(c=>{
+    const i = calcIdade(c.dataNascimento);
+    return i==null || !idadesFaixa.includes(i);
+  });
+  const linhaForaFaixa = DIAS.map(d => criancasForaFaixa.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
+  const temForaFaixa = linhaForaFaixa.some(v=>v>0);
+
+  const linhaBarras = (label, valor, max, cor, extra='') => {
+    const corTexto = corTextColor(cor);
+    const borda = cor.toUpperCase()==='#FFFFFF' ? 'border:1px solid #C9C9C9;' : '';
+    return `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6,(valor/max)*100)}%;background:${cor};color:${corTexto};${borda}">${valor}${extra}</div></div>
+    </div>`;
+  };
+
+  return `
+    <div class="report-header">
+      <h2>📊 Relatório do Evento — Todos os Dias</h2>
+      <p class="small-note">Gerado em ${dataHoraGerado} · ${total} crianças cadastradas no total</p>
     </div>
 
     <div class="report-section-title">Presença por dia do evento</div>
@@ -1262,17 +1342,24 @@ function montarRelatorioHtml(dados){
     <div class="report-section-title">Retiradas confirmadas por dia</div>
     ${DIAS.map((d,i)=> linhaBarras(DATAS_EVENTO[i], retiradasPorDia[i], maxPresentes, 'var(--azul-medio)')).join('')}
 
-    <div class="report-section-title">Distribuição por idade <span class="small-note" style="font-weight:400;">(útil para separar turmas e porções do lanche)</span></div>
-    ${idadesFaixa.map((idade,i)=> linhaBarras(idade+' anos', porIdade[i], maxIdade, 'var(--azul-noite)')).join('')}
-    ${outrasIdades>0 ? linhaBarras('Outras', outrasIdades, maxIdade, 'var(--cinza)') : ''}
-
-    <div class="report-section-title">Distribuição por pulseira (cor)</div>
-    ${nomesCores.map((nome,i)=> linhaBarras(nome, porCor[i], maxCor, hexPorNomeCor(nome))).join('')}
-
-    <div class="report-section-title">Crianças com alergia/restrição alimentar <span class="small-note" style="font-weight:400;">(${comAlergia.length})</span></div>
-    ${comAlergia.length ? `<div class="report-scroll">${comAlergia.map(c=>`
-      <div class="report-list-item"><span><b>#${c.numero}</b> ${c.nomeCompleto}</span><span style="color:var(--vermelho-alerta);">${c.alergiaRestricao}</span></div>
-    `).join('')}</div>` : '<p class="small-note">Nenhuma alergia ou restrição cadastrada.</p>'}
+    <div class="report-section-title">Presença por idade em cada dia <span class="small-note" style="font-weight:400;">(pra comparar o movimento de cada faixa etária ao longo do evento)</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Idade</th>${DATAS_EVENTO.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${idadesFaixa.map((idade,i)=>`
+            <tr>
+              <td><span class="badge" style="${badgeStyle(corPorIdade(idade).nome)}">${idade} anos</span></td>
+              ${matrizIdadeDia[i].map(v=>`<td>${v}</td>`).join('')}
+            </tr>`).join('')}
+          ${temForaFaixa ? `<tr><td>Idade não definida</td>${linhaForaFaixa.map(v=>`<td>${v}</td>`).join('')}</tr>` : ''}
+          <tr style="font-weight:700;background:var(--areia);">
+            <td>Total</td>
+            ${presentesPorDia.map(v=>`<td>${v}</td>`).join('')}
+          </tr>
+        </tbody>
+      </table>
+    </div>
   `;
 }
 
