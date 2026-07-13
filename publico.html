@@ -130,8 +130,15 @@ button.secondary{
   <div class="numero-grande" id="sucessoNumero">#000</div>
   <div class="nome-grande" id="sucessoNome">Nome</div>
   <div class="center"><span class="badge" id="sucessoCorBadge">cor</span></div>
-  <p class="small-note center" id="sucessoMensagem"></p>
-  <button class="secondary" id="btnNovoCheckin">Fazer check-in de outra criança</button>
+  <div class="alerta-box" style="background:#FFFBEB;border-color:#FDE68A;color:#92400E;" id="sucessoPalavraBox"></div>
+  <p class="small-note center">Guarde essa palavra — vai ser pedida na hora de buscar a criança.</p>
+  <button class="secondary" id="btnNovoCheckin">Fazer check-in de outra criança (irmãos)</button>
+
+  <div id="listaFamiliaBox" class="hidden" style="margin-top:18px;border-top:1px solid var(--cinza-claro);padding-top:14px;">
+    <div class="small-note" style="font-weight:600;color:var(--texto);">Crianças confirmadas hoje neste aparelho:</div>
+    <div id="listaFamiliaConteudo"></div>
+    <button class="primary" id="btnBaixarComprovante">📸 Baixar comprovante (imagem)</button>
+  </div>
 </div>
 
 </main>
@@ -263,7 +270,7 @@ document.getElementById('btnConfirmar').addEventListener('click', async ()=>{
   setBotaoCarregando(btn, true, 'Confirmar presença');
   try{
     const dados = await chamarApiPublica('/publico/confirmar', corpo);
-    mostrarSucesso(dados, corpo.novaPalavraSecreta);
+    mostrarSucesso(dados, corpo.novaPalavraSecreta || corpo.palavraSecreta);
   }catch(e){
     erroBox.innerHTML = `<div class="alerta-box">${e.message}</div>`;
   }finally{
@@ -271,17 +278,115 @@ document.getElementById('btnConfirmar').addEventListener('click', async ()=>{
   }
 });
 
-function mostrarSucesso(c, novaPalavra){
+function chaveFilhosHoje(){ return 'ebf_publico_confirmados_dia'+diaAtual; }
+
+function obterFilhosConfirmadosHoje(){
+  try{ return JSON.parse(localStorage.getItem(chaveFilhosHoje())||'[]'); }catch(e){ return []; }
+}
+
+function adicionarFilhoConfirmado(dados){
+  const lista = obterFilhosConfirmadosHoje().filter(f=>f.id!==dados.id);
+  lista.push(dados);
+  localStorage.setItem(chaveFilhosHoje(), JSON.stringify(lista));
+  return lista;
+}
+
+function mostrarSucesso(c, palavraUsada){
   document.getElementById('etapaConfirmar').classList.add('hidden');
   document.getElementById('etapaSucesso').classList.remove('hidden');
   document.getElementById('sucessoNumero').textContent = '#'+c.numero;
   document.getElementById('sucessoNome').textContent = c.nomeCompleto;
   document.getElementById('sucessoCorBadge').textContent = c.corPulseira;
   document.getElementById('sucessoCorBadge').style.background = corHexAproximado(c.corPulseira);
-  document.getElementById('sucessoMensagem').textContent = novaPalavra
-    ? ('Guarde a palavra secreta que você criou (' + novaPalavra + ') — vai ser pedida na hora de buscar a criança.')
-    : 'Guarde a palavra secreta combinada — vai ser pedida na hora de buscar a criança.';
+  document.getElementById('sucessoPalavraBox').innerHTML = palavraUsada
+    ? ('🔑 Palavra secreta: <b>'+palavraUsada+'</b>')
+    : '⚠️ Nenhuma palavra secreta cadastrada para esta criança.';
+
+  const listaAtualizada = adicionarFilhoConfirmado({
+    id: c.id, numero: c.numero, nomeCompleto: c.nomeCompleto,
+    corPulseira: c.corPulseira, palavraSecreta: palavraUsada || ''
+  });
+  renderizarListaFamilia(listaAtualizada);
 }
+
+function renderizarListaFamilia(lista){
+  const box = document.getElementById('listaFamiliaBox');
+  const conteudo = document.getElementById('listaFamiliaConteudo');
+  if(!lista.length){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  conteudo.innerHTML = lista.map(f=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--cinza-claro);font-size:14px;">
+      <span><b>#${f.numero}</b> — ${f.nomeCompleto}</span>
+      <span class="badge" style="background:${corHexAproximado(f.corPulseira)};font-size:11px;">${f.corPulseira}</span>
+    </div>`).join('');
+}
+
+function baixarImagemComprovante(){
+  const lista = obterFilhosConfirmadosHoje();
+  if(!lista.length) return;
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+
+  const largura = 640;
+  const alturaTopo = 110;
+  const alturaPorFilho = 110;
+  const alturaRodape = 60;
+  const altura = alturaTopo + lista.length*alturaPorFilho + alturaRodape;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = largura;
+  canvas.height = altura;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#F7F3EC';
+  ctx.fillRect(0,0,largura,altura);
+
+  ctx.fillStyle = '#1E3A5F';
+  ctx.fillRect(0,0,largura,alturaTopo);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 24px Arial, sans-serif';
+  ctx.fillText('Escola Bíblica de Férias', largura/2, 46);
+  ctx.font = '15px Arial, sans-serif';
+  ctx.fillText('Comprovante de check-in — '+dataLabel, largura/2, 74);
+
+  let y = alturaTopo + 18;
+  lista.forEach(f=>{
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(28, y, largura-56, alturaPorFilho-20);
+    ctx.strokeStyle = '#E5E7EB';
+    ctx.strokeRect(28, y, largura-56, alturaPorFilho-20);
+
+    ctx.fillStyle = '#1E3A5F';
+    ctx.font = 'bold 30px Arial, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('#'+f.numero, 48, y+42);
+
+    ctx.fillStyle = '#1F2937';
+    ctx.font = 'bold 18px Arial, sans-serif';
+    ctx.fillText(f.nomeCompleto, 150, y+30);
+
+    ctx.font = '13px Arial, sans-serif';
+    ctx.fillStyle = '#6B7280';
+    ctx.fillText('Pulseira: '+f.corPulseira, 150, y+52);
+    ctx.fillStyle = '#92400E';
+    ctx.font = 'bold 13px Arial, sans-serif';
+    ctx.fillText('Palavra secreta: '+(f.palavraSecreta||'-'), 150, y+70);
+
+    y += alturaPorFilho;
+  });
+
+  ctx.fillStyle = '#6B7280';
+  ctx.font = '12px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Apresente este comprovante ou a palavra secreta na hora da retirada.', largura/2, altura-24);
+
+  const link = document.createElement('a');
+  link.download = 'comprovante-ebf-'+dataLabel.replace('/','-')+'.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+document.getElementById('btnBaixarComprovante').addEventListener('click', baixarImagemComprovante);
 
 document.getElementById('btnVoltar').addEventListener('click', reiniciar);
 document.getElementById('btnNovoCheckin').addEventListener('click', reiniciar);
