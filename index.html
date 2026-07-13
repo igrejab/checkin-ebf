@@ -461,7 +461,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <!-- ===================== TAB: CONFIG ===================== -->
 <section id="tab-config" class="card hidden">
   <h2 style="margin-top:0;">Configurações</h2>
-  <p class="small-note">A URL do Worker já vem configurada — normalmente você não precisa mexer aqui, só usa a tela de login que abre no início. Use esta aba se precisar trocar o código de acesso, seu nome, ou (raro) apontar para outro Worker.</p>
+  <p class="small-note"> </p>
   <label>URL do Worker (Cloudflare)</label>
   <input type="text" id="cfgWorkerUrl" placeholder="https://checkin-ebf.SEUUSUARIO.workers.dev">
   <label>Código de acesso</label>
@@ -469,22 +469,22 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
     <div style="flex:1;"><input type="password" id="cfgAccessCode" placeholder="senha combinada com a equipe"></div>
     <button type="button" class="secondary" id="btnToggleSenha" style="margin-bottom:0;white-space:nowrap;">Mostrar</button>
   </div>
-  <label>Seu nome (aparece como "confirmado por" nos registros)</label>
+  <label>Seu nome </label>
   <input type="text" id="cfgOperador" placeholder="Ex: Maria - Recepção">
   <label style="display:flex;align-items:center;gap:8px;margin-top:16px;">
     <input type="checkbox" id="cfgAutoImprimir" style="width:auto;">
-    Imprimir comprovante automaticamente após confirmar presença <span style="font-weight:400;color:var(--cinza);">(precisa de uma impressora térmica configurada neste computador)</span>
+    Imprimir comprovante automaticamente após confirmar presença <span style="font-weight:400;color:var(--cinza);"> </span>
   </label>
   <button class="primary" id="btnSalvarConfig">Salvar</button>
   <button class="secondary" id="btnTestarConexao">Testar conexão</button>
   <div id="testeResultado"></div>
 
   <h3>Cores das pulseiras</h3>
-  <p class="small-note">A cor é calculada automaticamente pela idade da criança — não precisa configurar nada aqui. Regra atual:</p>
+  <p class="small-note"> </p>
   <div id="listaCoresFixas"></div>
 
   <h3 style="color:var(--vermelho-alerta);">Zona de risco</h3>
-  <p class="small-note">Apaga <b>permanentemente</b> todos os cadastros de crianças (presenças, retiradas, tudo). Use isto para limpar cadastros de teste antes de importar a lista definitiva do evento — depois disso, a numeração volta a começar do #001. Não afeta configurações do Worker.</p>
+  <p class="small-note">Apaga <b>permanentemente</b> todos os cadastros de crianças (presenças, retiradas, tudo).</p>
   <button class="secondary" id="btnApagarTudo" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);">Apagar todos os cadastros</button>
   <div id="apagarTudoBox" class="hidden" style="margin-top:10px;">
     <label>Digite <b>APAGAR</b> para confirmar</label>
@@ -1577,7 +1577,7 @@ function montarRelatorioDiaHtml(dados){
       ${outrasIdades>0 ? linhaBarras('Idade não definida', outrasIdades, maxIdade, '#9CA3AF') : ''}
     `}
 
-    <div class="report-section-title">Alergias e restrições — presentes hoje <span class="small-note" style="font-weight:400;">(resumo por tipo — ${totalComAlergia} crianças)</span></div>
+    <div class="report-section-title">Alergias e restrições — presentes hoje <span class="small-note" style="font-weight:400;">(${totalComAlergia} crianças)</span></div>
     ${listaGruposAlergia.length ? listaGruposAlergia.map(g=> linhaBarras(g.texto, g.qtd, maxAlergia, 'var(--vermelho-alerta)', ' criança'+(g.qtd>1?'s':''))).join('') : '<p class="small-note">Nenhuma alergia ou restrição entre as crianças presentes hoje.</p>'}
     ${listaGruposAlergia.length ? '<p class="small-note" style="margin-top:8px;">Agrupado pelo texto exato digitado no cadastro — se a mesma restrição foi escrita de formas diferentes (ex: "lactose" e "alergia a lactose"), pode aparecer em linhas separadas.</p>' : ''}
   `;
