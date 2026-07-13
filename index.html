@@ -209,6 +209,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <!-- ===================== TAB: CHECK-IN ===================== -->
 <section id="tab-checkin" class="card">
   <div class="day-selector" id="daySelector"></div>
+  <div id="avisoDiaCheckin"></div>
 
   <div class="flex-between">
     <label style="margin:0;">Buscar criança pelo nome</label>
@@ -280,6 +281,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <section id="tab-retirada" class="card hidden">
   <h2 style="margin-top:0;">Check-out</h2>
   <div class="day-selector" id="daySelectorSaida"></div>
+  <div id="avisoDiaSaida"></div>
 
   <label>Buscar criança pelo nome</label>
   <input type="text" id="searchInputSaida" placeholder="Digite o nome da criança…" autocomplete="off">
@@ -470,6 +472,16 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
   <h3>Cores das pulseiras</h3>
   <p class="small-note">A cor é calculada automaticamente pela idade da criança — não precisa configurar nada aqui. Regra atual:</p>
   <div id="listaCoresFixas"></div>
+
+  <h3 style="color:var(--vermelho-alerta);">Zona de risco</h3>
+  <p class="small-note">Apaga <b>permanentemente</b> todos os cadastros de crianças (presenças, retiradas, tudo). Use isto para limpar cadastros de teste antes de importar a lista definitiva do evento — depois disso, a numeração volta a começar do #001. Não afeta configurações do Worker.</p>
+  <button class="secondary" id="btnApagarTudo" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);">Apagar todos os cadastros</button>
+  <div id="apagarTudoBox" class="hidden" style="margin-top:10px;">
+    <label>Digite <b>APAGAR</b> para confirmar</label>
+    <input type="text" id="apagarTudoConfirmacao" autocomplete="off">
+    <button class="primary" id="btnConfirmarApagarTudo" style="background:var(--vermelho-alerta);width:100%;">Confirmar exclusão definitiva</button>
+  </div>
+  <div id="apagarTudoResultado"></div>
 </section>
 
 </main>
@@ -503,7 +515,31 @@ function badgeStyle(nomeCor){
   return `background:${hex};color:${corTextColor(hex)}${borda}`;
 }
 let indexCache = [];
-let diaAtual = 1;
+
+function obterDatasEventoComoDate(){
+  const anoAtual = new Date().getFullYear();
+  return DATAS_EVENTO.map(str=>{
+    const [dia,mes] = str.split('/').map(Number);
+    return new Date(anoAtual, mes-1, dia, 0,0,0,0);
+  });
+}
+
+function obterDiaAtualPadrao(){
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  const datas = obterDatasEventoComoDate();
+  for(let i=0;i<datas.length;i++){
+    if(hoje.getTime() === datas[i].getTime()) return i+1;
+  }
+  if(hoje < datas[0]) return 1;
+  if(hoje > datas[datas.length-1]) return datas.length;
+  for(let i=datas.length-1;i>=0;i--){
+    if(hoje > datas[i]) return i+1;
+  }
+  return 1;
+}
+
+let diaAtual = obterDiaAtualPadrao();
 let criancaSelecionada = null;
 let criancaSaidaSelecionada = null;
 
@@ -673,6 +709,21 @@ function montarSeletorDias(){
       el.appendChild(b);
     });
   });
+  atualizarAvisoDiaDivergente();
+}
+
+function atualizarAvisoDiaDivergente(){
+  const diaPadraoHoje = obterDiaAtualPadrao();
+  const dataSelecionada = DATAS_EVENTO[diaAtual-1] || '';
+  const dataHoje = DATAS_EVENTO[diaPadraoHoje-1] || '';
+  const divergente = diaAtual !== diaPadraoHoje;
+  const html = divergente
+    ? `<div class="alerta-box">⚠️ Você está registrando para <b>${dataSelecionada}</b>, mas hoje é <b>${dataHoje}</b>. Confira se é isso mesmo antes de continuar.</div>`
+    : '';
+  const avisoCheckin = document.getElementById('avisoDiaCheckin');
+  const avisoSaida = document.getElementById('avisoDiaSaida');
+  if(avisoCheckin) avisoCheckin.innerHTML = html;
+  if(avisoSaida) avisoSaida.innerHTML = html;
 }
 
 document.getElementById('searchInput').addEventListener('input', (e)=>{
@@ -1143,6 +1194,12 @@ function parseLinhasCsv(texto, sep){
   return linhas.filter(l => !(l.length===1 && l[0].trim()===''));
 }
 
+function extrairTelefoneDeTexto(texto){
+  if(!texto) return '';
+  const match = texto.match(/(\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4})/);
+  return match ? match[1] : '';
+}
+
 function parseCsv(texto){
   const textoLimpo = texto.trim();
   if(!textoLimpo) return [];
@@ -1162,6 +1219,11 @@ function parseCsv(texto){
       if(!obj[campo]) obj[campo] = (valores[i]||'').trim();
     });
     obj.dataNascimento = normalizarData(obj.dataNascimento);
+    // se o Celular veio vazio, tenta puxar um telefone de dentro do texto combinado
+    // "Nome e telefone do responsável" (que continua guardado como veio, sem alteração)
+    if(!obj.telefoneResponsavel && obj.nomeResponsavel){
+      obj.telefoneResponsavel = extrairTelefoneDeTexto(obj.nomeResponsavel);
+    }
     return obj;
   }).filter(o=>o.nomeCompleto);
 }
@@ -1533,6 +1595,27 @@ document.getElementById('btnTestarConexao').addEventListener('click', async ()=>
     if(res.ok){ box.innerHTML = '<div class="ok-box">✅ Conexão OK!</div>'; }
     else{ const e = await res.json(); box.innerHTML = `<div class="alerta-box">❌ ${e.error||res.status}</div>`; }
   }catch(e){ box.innerHTML = `<div class="alerta-box">❌ ${e.message}</div>`; }
+});
+
+document.getElementById('btnApagarTudo').addEventListener('click', ()=>{
+  document.getElementById('apagarTudoBox').classList.remove('hidden');
+  document.getElementById('apagarTudoConfirmacao').value = '';
+  document.getElementById('apagarTudoConfirmacao').focus();
+});
+
+document.getElementById('btnConfirmarApagarTudo').addEventListener('click', async ()=>{
+  const digitado = document.getElementById('apagarTudoConfirmacao').value.trim();
+  if(digitado !== 'APAGAR'){
+    toast('Digite exatamente "APAGAR" (em maiúsculas) para confirmar.');
+    return;
+  }
+  if(!confirm('Isto vai apagar TODOS os cadastros de crianças permanentemente, incluindo presenças e retiradas já registradas. Não pode ser desfeito. Continuar?')) return;
+  try{
+    const r = await apiCall('/children/all','DELETE',{confirmar:'APAGAR'});
+    document.getElementById('apagarTudoResultado').innerHTML = `<div class="ok-box">✅ ${r.apagadas} cadastro(s) apagado(s). A numeração volta a começar do #001.</div>`;
+    document.getElementById('apagarTudoBox').classList.add('hidden');
+    indexCache = [];
+  }catch(e){ toast('Erro: '+e.message); }
 });
 
 init();
