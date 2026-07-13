@@ -153,6 +153,12 @@ body.imprimindo-comprovante #comprovanteImpressao .comprovante-ticket{
 }
 body.imprimindo-comprovante #comprovanteImpressao .numero-grande{font-size:34px;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px 0;margin:6px 0;}
 body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
+body.imprimindo-comprovante #comprovanteImpressao .small-note{
+  color:#000 !important;font-size:13px !important;font-weight:700 !important;
+}
+body.imprimindo-comprovante #comprovanteImpressao p.small-note{
+  font-size:12px !important;font-weight:400 !important;
+}
 @media print{
   header, nav, #btnAtualizarRelatorio, #btnImprimirRelatorio, .day-selector{display:none !important;}
   body{background:#fff;}
@@ -402,6 +408,27 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
         <button class="secondary" id="btnConfirmarEnviadoFila" style="flex:1;min-width:160px;">✔️ Confirmar enviado — próximo</button>
         <button class="secondary" id="btnPularFila" style="flex:1;min-width:120px;">Pular este</button>
         <button class="secondary" id="btnFecharFila" style="flex:1;min-width:100px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:14px;margin-bottom:16px;">
+    <div class="flex-between">
+      <div>
+        <b>Impressão de comprovantes pendentes</b>
+        <div class="small-note" id="pendentesImpressaoInfo">Verificando pendências…</div>
+        <div class="small-note">Use isto no computador ligado à impressora — funciona para check-ins feitos em qualquer tablet/celular.</div>
+      </div>
+      <button class="primary" id="btnIniciarImpressaoPendentes" style="background:var(--verde-ok);">Iniciar impressão</button>
+    </div>
+    <div id="filaImpressaoBox" class="hidden" style="margin-top:14px;border-top:1px solid #86EFAC;padding-top:14px;">
+      <div class="small-note" id="filaImpressaoContador"></div>
+      <div style="font-size:18px;font-weight:700;" id="filaImpressaoNome"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="primary" id="btnImprimirFila" style="flex:1;min-width:160px;background:var(--verde-ok);">Imprimir agora</button>
+        <button class="secondary" id="btnConfirmarImpressoFila" style="flex:1;min-width:160px;">✔️ Já saiu — próximo</button>
+        <button class="secondary" id="btnPularFilaImpressao" style="flex:1;min-width:120px;">Pular este</button>
+        <button class="secondary" id="btnFecharFilaImpressao" style="flex:1;min-width:100px;">Fechar</button>
       </div>
     </div>
   </div>
@@ -957,10 +984,8 @@ function definirTamanhoPaginaImpressao(tamanho){
   styleTag.textContent = tamanho ? `@page{size:${tamanho};margin:2mm;}` : '';
 }
 
-function imprimirComprovante(){
-  const c = criancaSelecionada;
-  if(!c) return;
-  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+function imprimirComprovanteDe(c, dia){
+  const dataLabel = DATAS_EVENTO[dia-1] || ('Dia '+dia);
   document.getElementById('comprovanteImpressao').innerHTML = `
     <div class="comprovante-ticket">
       <div class="small-note">Comprovante de check-in</div>
@@ -972,6 +997,11 @@ function imprimirComprovante(){
   definirTamanhoPaginaImpressao('80mm auto');
   document.body.classList.add('imprimindo-comprovante');
   window.print();
+}
+
+function imprimirComprovante(){
+  if(!criancaSelecionada) return;
+  imprimirComprovanteDe(criancaSelecionada, diaAtual);
 }
 document.getElementById('btnImprimirComprovante').addEventListener('click', imprimirComprovante);
 window.addEventListener('afterprint', ()=>{
@@ -1301,6 +1331,7 @@ async function carregarAdmin(){
     renderAdminStats();
     renderAdminTabela();
     atualizarContagemPendentesComprovante();
+    atualizarContagemPendentesImpressao();
   }catch(e){ toast('Erro ao carregar painel: '+e.message); }
 }
 document.getElementById('btnRefreshAdmin').addEventListener('click', carregarAdmin);
@@ -1382,6 +1413,80 @@ document.getElementById('btnPularFila').addEventListener('click', ()=>{
 document.getElementById('btnFecharFila').addEventListener('click', ()=>{
   document.getElementById('filaComprovanteBox').classList.add('hidden');
   atualizarContagemPendentesComprovante();
+});
+
+// ============================================================
+// FILA DE IMPRESSÃO DE COMPROVANTES PENDENTES (usar no computador ligado à impressora)
+// ============================================================
+let filaImpressao = [];
+let filaImpressaoIndex = 0;
+
+function listaPendentesImpressao(){
+  const chaveDia = 'dia'+diaAtual;
+  return todasCriancas.filter(c=>{
+    const diaObj = c.presencas && c.presencas[chaveDia];
+    if(!diaObj || !diaObj.presente) return false;
+    if(diaObj.impressoEmPapel && diaObj.impressoEmPapel.impresso) return false;
+    return true;
+  });
+}
+
+function atualizarContagemPendentesImpressao(){
+  const pendentes = listaPendentesImpressao();
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  document.getElementById('pendentesImpressaoInfo').textContent =
+    `${pendentes.length} comprovante(s) pendente(s) em ${dataLabel} (presença confirmada, ainda não impresso)`;
+}
+
+document.getElementById('btnIniciarImpressaoPendentes').addEventListener('click', ()=>{
+  filaImpressao = listaPendentesImpressao();
+  filaImpressaoIndex = 0;
+  if(!filaImpressao.length){ toast('Nenhuma impressão pendente no momento.'); return; }
+  document.getElementById('filaImpressaoBox').classList.remove('hidden');
+  mostrarItemFilaImpressao();
+});
+
+function mostrarItemFilaImpressao(){
+  if(filaImpressaoIndex >= filaImpressao.length){
+    document.getElementById('filaImpressaoBox').classList.add('hidden');
+    toast('Impressão concluída!');
+    atualizarContagemPendentesImpressao();
+    return;
+  }
+  const c = filaImpressao[filaImpressaoIndex];
+  document.getElementById('filaImpressaoContador').textContent = `${filaImpressaoIndex+1} de ${filaImpressao.length}`;
+  document.getElementById('filaImpressaoNome').textContent = `#${c.numero} — ${c.nomeCompleto}`;
+}
+
+document.getElementById('btnImprimirFila').addEventListener('click', ()=>{
+  const c = filaImpressao[filaImpressaoIndex];
+  if(!c) return;
+  imprimirComprovanteDe(c, diaAtual);
+});
+
+document.getElementById('btnConfirmarImpressoFila').addEventListener('click', async ()=>{
+  const c = filaImpressao[filaImpressaoIndex];
+  if(!c) return;
+  const chaveDia = 'dia'+diaAtual;
+  const diaObjAtual = (c.presencas && c.presencas[chaveDia]) || {};
+  try{
+    await apiCall('/child','PUT',{ id:c.id, presencas:{ [chaveDia]: {
+      ...diaObjAtual,
+      impressoEmPapel: { impresso:true, hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), impressoPor: CONFIG.operador||'não identificado' }
+    }}});
+    filaImpressaoIndex++;
+    mostrarItemFilaImpressao();
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+document.getElementById('btnPularFilaImpressao').addEventListener('click', ()=>{
+  filaImpressaoIndex++;
+  mostrarItemFilaImpressao();
+});
+
+document.getElementById('btnFecharFilaImpressao').addEventListener('click', ()=>{
+  document.getElementById('filaImpressaoBox').classList.add('hidden');
+  atualizarContagemPendentesImpressao();
 });
 
 function renderAdminStats(){
