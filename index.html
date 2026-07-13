@@ -245,21 +245,10 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
       <input type="text" id="selResponsavel" autocomplete="off">
       <label>Telefone do responsável *</label>
       <input type="text" id="selTelefone" autocomplete="off">
-      <label>Palavra secreta de retirada * <span style="font-weight:400;color:var(--cinza);">(combine com o responsável agora)</span></label>
-      <input type="text" id="selPalavraSecreta" placeholder="Ex: girassol" autocomplete="off">
     </div>
     <div id="diaOutroFields" class="hidden">
       <div class="info-line">Responsável: <b id="selResponsavelView"></b></div>
       <div class="info-line">Telefone: <b id="selTelefoneView"></b></div>
-      <div class="ok-box" style="background:#FFFBEB;border-color:#FDE68A;color:#92400E;">
-        🔔 Lembre o responsável: a palavra secreta cadastrada é <b id="selPalavraSecretaView"></b> — ele vai precisar dela na hora de buscar a criança.
-      </div>
-      <button class="secondary" id="btnAlterarPalavra" style="font-size:12px;">Trocar palavra secreta</button>
-      <div id="alterarPalavraBox" class="hidden" style="margin-top:8px;">
-        <label>Nova palavra secreta</label>
-        <input type="text" id="selNovaPalavraSecreta" autocomplete="off">
-        <button class="secondary" id="btnSalvarNovaPalavra">Salvar nova palavra</button>
-      </div>
     </div>
 
     <label>Observação (opcional)</label>
@@ -310,19 +299,16 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
     <div id="saidaStatusBox"></div>
 
     <div id="saidaFormBox">
-      <p class="small-note" style="text-align:center;">Peça para a pessoa dizer a palavra secreta e compare com a palavra abaixo:</p>
-      <div style="text-align:center;background:var(--areia);border-radius:10px;padding:14px;margin:8px 0;">
-        <div id="saidaPalavraDisplay" style="font-size:30px;font-weight:800;color:var(--azul-noite);letter-spacing:0.5px;">—</div>
-      </div>
-      <button class="primary" id="btnConfirmarRetirada" style="width:100%;font-size:16px;background:var(--verde-ok);">✅ Confere — Confirmar check-out</button>
+      <p class="small-note" style="text-align:center;">Peça o comprovante impresso e confira se o número bate com o mostrado acima:</p>
+      <button class="primary" id="btnConfirmarRetirada" style="width:100%;font-size:16px;background:var(--verde-ok);">✅ Número confere — Confirmar check-out</button>
       <div id="saidaFeedback" style="text-align:center;margin-top:8px;"></div>
 
       <div style="text-align:center;margin-top:14px;">
-        <button class="secondary" id="btnNaoLembra" style="font-size:13px;">Responsável não lembra a palavra secreta</button>
+        <button class="secondary" id="btnNaoLembra" style="font-size:13px;">Responsável não tem o comprovante impresso</button>
       </div>
 
       <div id="saidaManualBox" class="hidden" style="margin-top:14px;border-top:1px dashed var(--cinza-claro);padding-top:14px;">
-        <p class="small-note">Confira presencialmente se quem está buscando é o responsável cadastrado (ou alguém que ele autorizou), antes de liberar sem a palavra secreta:</p>
+        <p class="small-note">Confira presencialmente se quem está buscando é o responsável cadastrado (ou alguém que ele autorizou), antes de liberar sem o comprovante:</p>
         <div class="info-line">Responsável cadastrado: <b id="saidaRespView"></b></div>
         <div class="info-line">Telefone: <b id="saidaTelView"></b></div>
         <button class="primary" id="btnLiberarManual" style="background:var(--vermelho-alerta);width:100%;margin-top:8px;">Liberar mesmo assim (verificado manualmente)</button>
@@ -366,8 +352,6 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
       <input type="text" id="cTelefone">
     </div>
   </div>
-  <label>Palavra secreta de retirada <span style="font-weight:400;color:var(--cinza);">(combine com o responsável — só quem souber pode buscar a criança)</span></label>
-  <input type="text" id="cPalavraSecreta" placeholder="Ex: girassol" autocomplete="off">
   <label>Observações</label>
   <textarea id="cObs"></textarea>
   <button class="primary" id="btnCadastrar">Cadastrar criança</button>
@@ -845,15 +829,11 @@ async function selecionarCrianca(id){
       document.getElementById('diaOutroFields').classList.add('hidden');
       document.getElementById('selResponsavel').value = c.nomeResponsavel||'';
       document.getElementById('selTelefone').value = c.telefoneResponsavel||'';
-      document.getElementById('selPalavraSecreta').value = c.palavraSecreta||'';
     }else{
       document.getElementById('dia1Fields').classList.add('hidden');
       document.getElementById('diaOutroFields').classList.remove('hidden');
       document.getElementById('selResponsavelView').textContent = c.nomeResponsavel||'-';
       document.getElementById('selTelefoneView').textContent = c.telefoneResponsavel||'-';
-      document.getElementById('selPalavraSecretaView').textContent = c.palavraSecreta || '(não cadastrada)';
-      document.getElementById('alterarPalavraBox').classList.add('hidden');
-      document.getElementById('selNovaPalavraSecreta').value = '';
     }
     document.getElementById('selObservacao').value = c.observacoes||'';
 
@@ -881,24 +861,6 @@ async function selecionarCrianca(id){
   }catch(e){ toast('Erro: '+e.message); }
 }
 
-document.getElementById('btnAlterarPalavra').addEventListener('click', ()=>{
-  document.getElementById('alterarPalavraBox').classList.remove('hidden');
-  document.getElementById('selNovaPalavraSecreta').focus();
-});
-
-document.getElementById('btnSalvarNovaPalavra').addEventListener('click', async ()=>{
-  if(!criancaSelecionada) return;
-  const nova = document.getElementById('selNovaPalavraSecreta').value.trim();
-  if(!nova){ toast('Digite a nova palavra secreta.'); return; }
-  try{
-    const atualizado = await apiCall('/child','PUT',{ id:criancaSelecionada.id, palavraSecreta: nova });
-    criancaSelecionada = atualizado;
-    document.getElementById('selPalavraSecretaView').textContent = atualizado.palavraSecreta;
-    document.getElementById('alterarPalavraBox').classList.add('hidden');
-    toast('Palavra secreta atualizada.');
-  }catch(e){ toast('Erro: '+e.message); }
-});
-
 document.getElementById('btnLimparSelecao').addEventListener('click', ()=>{
   criancaSelecionada = null;
   document.getElementById('selectedChildBox').classList.add('hidden');
@@ -908,10 +870,7 @@ document.getElementById('btnLimparSelecao').addEventListener('click', ()=>{
   document.getElementById('searchResults').innerHTML='';
   document.getElementById('selResponsavel').value='';
   document.getElementById('selTelefone').value='';
-  document.getElementById('selPalavraSecreta').value='';
   document.getElementById('selObservacao').value='';
-  document.getElementById('selNovaPalavraSecreta').value='';
-  document.getElementById('alterarPalavraBox').classList.add('hidden');
 });
 
 document.getElementById('btnConfirmarPresenca').addEventListener('click', async ()=>{
@@ -922,9 +881,8 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
   if(camposEditaveisVisiveis){
     const resp = document.getElementById('selResponsavel').value.trim();
     const tel = document.getElementById('selTelefone').value.trim();
-    const senha = document.getElementById('selPalavraSecreta').value.trim();
-    if(!resp || !tel || !senha){
-      toast('⚠️ Preencha nome do responsável, telefone e palavra secreta para confirmar.');
+    if(!resp || !tel){
+      toast('⚠️ Preencha nome do responsável e telefone para confirmar.');
       return;
     }
   }
@@ -941,7 +899,6 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
   if(camposEditaveisVisiveis){
     payload.nomeResponsavel = document.getElementById('selResponsavel').value.trim();
     payload.telefoneResponsavel = document.getElementById('selTelefone').value.trim();
-    payload.palavraSecreta = document.getElementById('selPalavraSecreta').value.trim();
   }
   try{
     const atualizado = await apiCall('/child','PUT',payload);
@@ -971,7 +928,7 @@ function telefoneParaWhatsapp(tel){
 }
 
 function montarMensagemComprovante(c, dataLabel){
-  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — pode ser pedida na retirada, junto com a palavra secreta combinada.`;
+  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — apresente na hora da retirada.`;
 }
 
 function definirTamanhoPaginaImpressao(tamanho){
@@ -992,7 +949,7 @@ function imprimirComprovanteDe(c, dia){
       <div class="numero-grande">#${c.numero}</div>
       <div class="nome">${c.nomeCompleto}</div>
       <div class="small-note">${dataLabel} · pulseira ${corPorIdade(calcIdade(c.dataNascimento)).nome}</div>
-      <p class="small-note" style="margin-top:14px;">Apresente este comprovante ou a palavra secreta combinada na hora da retirada.</p>
+      <p class="small-note" style="margin-top:14px;">Apresente este comprovante na hora da retirada.</p>
     </div>`;
   definirTamanhoPaginaImpressao('80mm auto');
   document.body.classList.add('imprimindo-comprovante');
@@ -1070,7 +1027,7 @@ async function selecionarCriancaSaida(id){
     }
 
     if(diaObj.retirada && diaObj.retirada.liberado){
-      statusBox.innerHTML = `<div class="ok-box">✅ Check-out já feito em ${dataLabel} às ${diaObj.retirada.hora} (${diaObj.retirada.metodo==='manual'?'verificação manual':'palavra secreta'}, por ${diaObj.retirada.liberadoPor||'-'})</div>
+      statusBox.innerHTML = `<div class="ok-box">✅ Check-out já feito em ${dataLabel} às ${diaObj.retirada.hora} (${diaObj.retirada.metodo==='manual'?'verificação manual':'comprovante conferido'}, por ${diaObj.retirada.liberadoPor||'-'})</div>
         <button class="secondary" id="btnDesfazerRetirada" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);margin-bottom:12px;">Desfazer check-out (marquei por engano)</button>`;
       document.getElementById('btnDesfazerRetirada').onclick = async ()=>{
         if(!confirm(`Desfazer o check-out de ${c.nomeCompleto} em ${dataLabel}?`)) return;
@@ -1097,19 +1054,8 @@ function resetFormularioSaida(){
   document.getElementById('saidaManualBox').classList.add('hidden');
 
   const btn = document.getElementById('btnConfirmarRetirada');
-  const display = document.getElementById('saidaPalavraDisplay');
-  const secretaCadastrada = (criancaSaidaSelecionada||{}).palavraSecreta || '';
-
-  if(!secretaCadastrada){
-    display.textContent = '(nenhuma cadastrada)';
-    btn.disabled = true;
-    btn.style.cssText='width:100%;font-size:16px;';
-    document.getElementById('saidaFeedback').innerHTML = '<span style="color:var(--cinza);font-size:13px;">Esta criança não tem palavra secreta cadastrada — use "não lembra a palavra" para verificar manualmente.</span>';
-  }else{
-    display.textContent = secretaCadastrada;
-    btn.disabled = false;
-    btn.style.cssText='width:100%;font-size:16px;background:var(--verde-ok);';
-  }
+  btn.disabled = false;
+  btn.style.cssText='width:100%;font-size:16px;background:var(--verde-ok);';
 }
 
 async function liberarRetirada(metodo){
@@ -1146,7 +1092,7 @@ document.getElementById('btnLimparSaida').addEventListener('click', ()=>{
   document.getElementById('searchResultsSaida').innerHTML='';
 });
 
-document.getElementById('btnConfirmarRetirada').addEventListener('click', ()=> liberarRetirada('senha'));
+document.getElementById('btnConfirmarRetirada').addEventListener('click', ()=> liberarRetirada('comprovante'));
 
 document.getElementById('btnNaoLembra').addEventListener('click', ()=>{
   document.getElementById('saidaManualBox').classList.remove('hidden');
@@ -1525,7 +1471,7 @@ function renderAdminTabela(){
       const p = diaObj.presente;
       const r = diaObj.retirada && diaObj.retirada.liberado;
       const tituloEntrada = p ? 'Entrada às '+diaObj.hora+' — clique para desfazer' : 'Sem entrada';
-      const tituloSaida = r ? 'Saída às '+diaObj.retirada.hora+' ('+(diaObj.retirada.metodo==='manual'?'manual':'senha')+', por '+(diaObj.retirada.liberadoPor||'-')+') — clique para desfazer' : (p ? 'Ainda não retirada' : '-');
+      const tituloSaida = r ? 'Saída às '+diaObj.retirada.hora+' ('+(diaObj.retirada.metodo==='manual'?'manual':'comprovante')+', por '+(diaObj.retirada.liberadoPor||'-')+') — clique para desfazer' : (p ? 'Ainda não retirada' : '-');
       return `<td>
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
           <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${tituloEntrada}">${p?'✓':'–'}</span>
@@ -1604,7 +1550,7 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
         retirada.liberado ? 'sim' : '',
         retirada.liberado ? (retirada.hora||'') : '',
         retirada.liberado ? (retirada.liberadoPor||'') : '',
-        retirada.liberado ? (retirada.metodo==='manual'?'manual':'senha') : ''
+        retirada.liberado ? (retirada.metodo==='manual'?'manual':'comprovante') : ''
       ];
     });
     linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.participaSemear,c.observacoes,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
