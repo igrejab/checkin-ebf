@@ -455,6 +455,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
     <button class="day-btn active" id="btnModoDia">Relatório do Dia</button>
     <button class="day-btn" id="btnModoEvento">Relatório do Evento (todos os dias)</button>
   </div>
+  <div class="day-selector" id="daySelectorRelatorio"></div>
   <div id="relatorioConteudo"><p class="small-note">Carregando…</p></div>
 </section>
 
@@ -506,7 +507,7 @@ if(!CONFIG.workerUrl) CONFIG.workerUrl = WORKER_URL_PADRAO;
 const CORES_POR_IDADE = {
   4:{nome:'Branco', hex:'#FFFFFF'}, 5:{nome:'Azul', hex:'#2C5F8A'},
   6:{nome:'Vermelho', hex:'#C13B3B'}, 7:{nome:'Verde', hex:'#2E8B57'},
-  8:{nome:'Amarelo', hex:'#D8A227'}, 9:{nome:'Preto', hex:'#1F2937'}, 10:{nome:'Preto', hex:'#1F2937'}
+  8:{nome:'Amarelo', hex:'#D8A227'}, 9:{nome:'Cinza', hex:'#6B7280'}, 10:{nome:'Cinza', hex:'#6B7280'}
 };
 function corPorIdade(idade){
   return CORES_POR_IDADE[idade] || {nome:'-', hex:'#9CA3AF'};
@@ -550,6 +551,7 @@ function obterDiaAtualPadrao(){
 }
 
 let diaAtual = obterDiaAtualPadrao();
+let diaRelatorio = obterDiaAtualPadrao();
 let criancaSelecionada = null;
 let criancaSaidaSelecionada = null;
 
@@ -601,7 +603,7 @@ document.getElementById('mainNav').addEventListener('click', (e)=>{
   document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
   document.getElementById('tab-'+e.target.dataset.tab).classList.remove('hidden');
   if(e.target.dataset.tab==='admin') carregarAdmin();
-  if(e.target.dataset.tab==='relatorio') carregarRelatorio();
+  if(e.target.dataset.tab==='relatorio'){ montarSeletorDiaRelatorio(); carregarRelatorio(); }
   if(e.target.dataset.tab==='checkin') atualizarIndexCache();
   if(e.target.dataset.tab==='retirada') atualizarIndexCache();
 });
@@ -633,6 +635,7 @@ async function init(){
   });
   renderFiltroCor();
   renderListaCoresFixas();
+  montarSeletorDiaRelatorio();
 
   if(!CONFIG.accessCode || !CONFIG.operador){
     document.getElementById('modalBoasVindas').classList.remove('hidden');
@@ -734,6 +737,24 @@ function atualizarAvisoDiaDivergente(){
   const avisoSaida = document.getElementById('avisoDiaSaida');
   if(avisoCheckin) avisoCheckin.innerHTML = html;
   if(avisoSaida) avisoSaida.innerHTML = html;
+}
+
+function montarSeletorDiaRelatorio(){
+  const el = document.getElementById('daySelectorRelatorio');
+  if(!el) return;
+  el.classList.toggle('hidden', modoRelatorio!=='dia');
+  el.innerHTML='';
+  DIAS.forEach(d=>{
+    const b = document.createElement('button');
+    b.className='day-btn'+(d===diaRelatorio?' active':'');
+    b.textContent=DATAS_EVENTO[d-1] || ('Dia '+d);
+    b.onclick=()=>{
+      diaRelatorio=d;
+      montarSeletorDiaRelatorio();
+      renderizarRelatorio();
+    };
+    el.appendChild(b);
+  });
 }
 
 document.getElementById('searchInput').addEventListener('input', (e)=>{
@@ -1507,12 +1528,14 @@ document.getElementById('btnModoDia').addEventListener('click', ()=>{
   modoRelatorio='dia';
   document.getElementById('btnModoDia').classList.add('active');
   document.getElementById('btnModoEvento').classList.remove('active');
+  montarSeletorDiaRelatorio();
   renderizarRelatorio();
 });
 document.getElementById('btnModoEvento').addEventListener('click', ()=>{
   modoRelatorio='evento';
   document.getElementById('btnModoEvento').classList.add('active');
   document.getElementById('btnModoDia').classList.remove('active');
+  montarSeletorDiaRelatorio();
   renderizarRelatorio();
 });
 
@@ -1521,8 +1544,8 @@ function montarRelatorioDiaHtml(dados){
   const agora = new Date();
   const dataHoraGerado = agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 
-  const chaveHoje = 'dia'+diaAtual;
-  const dataHojeLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  const chaveHoje = 'dia'+diaRelatorio;
+  const dataHojeLabel = DATAS_EVENTO[diaRelatorio-1] || ('Dia '+diaRelatorio);
   const presentesHojeLista = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].presente);
   const presentesHoje = presentesHojeLista.length;
   const retiradasHoje = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].retirada && c.presencas[chaveHoje].retirada.liberado).length;
