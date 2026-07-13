@@ -160,7 +160,7 @@ th{background:var(--areia);position:sticky;top:0;}
 
 <div id="modalBoasVindas" class="hidden" style="position:fixed;inset:0;background:rgba(30,58,95,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div class="card" style="max-width:380px;width:100%;">
-    <h2 style="margin-top:0;">👋 Bem-vindo(a)</h2>
+    <h2 style="margin-top:0;">Bem-vindo(a)</h2>
     <p class="small-note">Digite o código de acesso combinado com a equipe e o seu nome para começar. Só precisa fazer isso uma vez neste aparelho.</p>
     <label>Código de acesso</label>
     <div style="display:flex;gap:8px;align-items:flex-end;">
@@ -176,7 +176,7 @@ th{background:var(--areia);position:sticky;top:0;}
 
 
 <header>
-  <h1>🧒 Check-in — Escola Bíblica de Férias</h1>
+  <h1>Check-in — Escola Bíblica de Férias</h1>
   <div class="status" id="connStatus">verificando conexão…</div>
 </header>
 
@@ -198,7 +198,7 @@ th{background:var(--areia);position:sticky;top:0;}
 
   <div class="flex-between">
     <label style="margin:0;">Buscar criança pelo nome</label>
-    <button class="secondary" id="btnAtualizarLista" style="padding:4px 12px;font-size:12px;">🔄 Atualizar lista</button>
+    <button class="secondary" id="btnAtualizarLista" style="padding:4px 12px;font-size:12px;">Atualizar lista</button>
   </div>
   <input type="text" id="searchInput" placeholder="Digite o nome da criança…" autocomplete="off">
   <div class="search-results" id="searchResults"></div>
@@ -364,7 +364,7 @@ th{background:var(--areia);position:sticky;top:0;}
     <select id="adminCorFilter"><option value="">Todas as cores</option></select>
   </div>
   <div class="flex-between" style="margin:10px 0;">
-    <button class="secondary" id="btnRefreshAdmin">🔄 Atualizar</button>
+    <button class="secondary" id="btnRefreshAdmin">Atualizar</button>
     <button class="secondary" id="btnExportCsv">⬇️ Exportar CSV</button>
   </div>
   <div class="small-note" style="margin-bottom:8px;">
@@ -391,13 +391,13 @@ th{background:var(--areia);position:sticky;top:0;}
   <div class="flex-between" style="margin-bottom:10px;">
     <h2 style="margin:0;">Relatório</h2>
     <div style="display:flex;gap:8px;">
-      <button class="secondary" id="btnAtualizarRelatorio">🔄 Atualizar</button>
-      <button class="primary" id="btnImprimirRelatorio">🖨️ Imprimir</button>
+      <button class="secondary" id="btnAtualizarRelatorio">Atualizar</button>
+      <button class="primary" id="btnImprimirRelatorio">Imprimir</button>
     </div>
   </div>
   <div class="day-selector" id="modoRelatorioSelector">
-    <button class="day-btn active" id="btnModoDia">📅 Relatório do Dia</button>
-    <button class="day-btn" id="btnModoEvento">📊 Relatório do Evento (todos os dias)</button>
+    <button class="day-btn active" id="btnModoDia">Relatório do Dia</button>
+    <button class="day-btn" id="btnModoEvento">Relatório do Evento (todos os dias)</button>
   </div>
   <div id="relatorioConteudo"><p class="small-note">Carregando…</p></div>
 </section>
@@ -427,17 +427,12 @@ th{background:var(--areia);position:sticky;top:0;}
 </main>
 
 <script>
-// ============================================================
-// ESTADO E CONFIGURAÇÃO
-// ============================================================
 const DIAS = [1,2,3,4,5];
-const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07']; // ajuste aqui se as datas mudarem
-const WORKER_URL_PADRAO = 'https://checkin-ebf.kbomfa.workers.dev'; // já fixo — ninguém precisa digitar
+const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07'];
+const WORKER_URL_PADRAO = 'https://checkin-ebf.kbomfa.workers.dev';
 let CONFIG = JSON.parse(localStorage.getItem('ebf_config') || '{}');
 if(!CONFIG.workerUrl) CONFIG.workerUrl = WORKER_URL_PADRAO;
 
-// Cor da pulseira é sempre calculada pela idade — mesma regra usada no worker.js.
-// Ajuste aqui se as faixas mudarem (e também em worker.js, na constante CORES_POR_IDADE).
 const CORES_POR_IDADE = {
   4:{nome:'Branco', hex:'#FFFFFF'}, 5:{nome:'Azul', hex:'#2C5F8A'},
   6:{nome:'Vermelho', hex:'#C13B3B'}, 7:{nome:'Verde', hex:'#2E8B57'},
@@ -497,9 +492,6 @@ function calcIdade(dataNasc){
   return idade;
 }
 
-// ============================================================
-// NAVEGAÇÃO
-// ============================================================
 document.getElementById('mainNav').addEventListener('click', (e)=>{
   if(e.target.tagName!=='BUTTON') return;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
@@ -517,16 +509,13 @@ async function atualizarIndexCache(){
   try{
     indexCache = await apiCall('/index');
     document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
-  }catch(e){ /* silencioso: se falhar, mantém a lista que já tinha em memória */ }
+  }catch(e){  }
 }
 document.getElementById('btnAtualizarLista').addEventListener('click', async ()=>{
   await atualizarIndexCache();
   toast('Lista atualizada — '+indexCache.length+' crianças.');
 });
 
-// ============================================================
-// INICIALIZAÇÃO
-// ============================================================
 async function init(){
   document.getElementById('cfgWorkerUrl').value = CONFIG.workerUrl || '';
   document.getElementById('cfgAccessCode').value = CONFIG.accessCode || '';
@@ -593,7 +582,6 @@ document.getElementById('btnEntrarModal').addEventListener('click', async ()=>{
     erroBox.innerHTML = `<div class="alerta-box">❌ Não foi possível conectar (${e.message}). Verifique a internet.</div>`;
   }
 });
-// permite confirmar apertando Enter no campo de senha ou nome
 ['modalSenha','modalOperador'].forEach(id=>{
   document.getElementById(id).addEventListener('keydown', (e)=>{
     if(e.key==='Enter') document.getElementById('btnEntrarModal').click();
@@ -630,9 +618,6 @@ function montarSeletorDias(){
   });
 }
 
-// ============================================================
-// CHECK-IN — BUSCA
-// ============================================================
 document.getElementById('searchInput').addEventListener('input', (e)=>{
   const termo = e.target.value.trim().toLowerCase();
   const box = document.getElementById('searchResults');
@@ -669,8 +654,6 @@ async function selecionarCrianca(id){
 
     const chaveDia = 'dia'+diaAtual;
     const jaConfirmado = c.presencas && c.presencas[chaveDia] && c.presencas[chaveDia].presente;
-    // "primeira vez" = a criança ainda não tem nenhuma presença confirmada em nenhum dia
-    // (não depende de qual dia está selecionado — cobre quem chega faltando um ou mais dias)
     const primeiraVez = !c.presencas || !Object.values(c.presencas).some(p=>p && p.presente);
 
     if(primeiraVez){
@@ -755,9 +738,6 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
   }catch(e){ toast('Erro: '+e.message); }
 });
 
-// ============================================================
-// RETIRADA (CHECK-OUT) — confirmação por palavra secreta
-// ============================================================
 document.getElementById('searchInputSaida').addEventListener('input', (e)=>{
   const termo = e.target.value.trim().toLowerCase();
   const box = document.getElementById('searchResultsSaida');
@@ -790,7 +770,7 @@ async function selecionarCriancaSaida(id){
 
     const obsBox = document.getElementById('saidaObsBox');
     obsBox.innerHTML = `
-      ${c.observacoes ? `<div class="alerta-box" style="background:#EFF6FF;border-color:#93C5FD;color:#1E3A5F;">📝 <b>Observação registrada:</b> ${c.observacoes}</div>` : ''}
+      ${c.observacoes ? `<div class="alerta-box" style="background:#EFF6FF;border-color:#93C5FD;color:#1E3A5F;"><b>Observação registrada:</b> ${c.observacoes}</div>` : ''}
       <label>Observação <span class="small-note" style="font-weight:400;">(ex: quem está autorizado a buscar)</span></label>
       <textarea id="saidaObservacao">${c.observacoes||''}</textarea>
     `;
@@ -804,7 +784,6 @@ async function selecionarCriancaSaida(id){
     resetFormularioSaida();
 
     if(!diaObj.presente){
-      // criança ainda não teve check-in confirmado neste dia — não faz sentido liberar retirada
       statusBox.innerHTML = `<div class="alerta-box">⚠️ Esta criança ainda não teve presença confirmada em ${dataLabel}. Confirme a presença na aba Check-in antes de liberar a retirada.</div>`;
       formBox.classList.add('hidden');
       document.getElementById('searchResultsSaida').innerHTML='';
@@ -866,13 +845,11 @@ document.getElementById('saidaPalavraInput').addEventListener('input', ()=>{
   }
 });
 
-// normaliza para comparar a palavra secreta sem se importar com acento, maiúscula/minúscula,
-// espaços ou qualquer caractere especial (pontuação, símbolos etc.) — só letras e números contam
 function normalizar(txt){
   return (txt||'').toString()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove acentos
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase()
-    .replace(/[^a-z0-9]/g,''); // remove tudo que não for letra ou número (espaço, hífen, pontuação, etc.)
+    .replace(/[^a-z0-9]/g,'');
 }
 
 async function liberarRetirada(metodo){
@@ -922,9 +899,6 @@ document.getElementById('btnLiberarManual').addEventListener('click', ()=>{
   liberarRetirada('manual');
 });
 
-// ============================================================
-// CADASTRO
-// ============================================================
 document.getElementById('cNascimento').addEventListener('change', ()=>{
   const idade = calcIdade(document.getElementById('cNascimento').value);
   const cor = corPorIdade(idade);
@@ -957,10 +931,6 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
   }catch(e){ toast('Erro: '+e.message); }
 });
 
-// ============================================================
-// IMPORTAR CSV
-// ============================================================
-// Mapa de nomes de cabeçalho aceitos → campo interno (comparado já normalizado: sem acento, minúsculo)
 const MAPA_CABECALHO = {
   'nome completo':'nomeCompleto', 'nome':'nomeCompleto', 'nomecompleto':'nomeCompleto', 'criança':'nomeCompleto', 'crianca':'nomeCompleto',
   'cpf':'cpf',
@@ -969,14 +939,13 @@ const MAPA_CABECALHO = {
   'nome do responsavel':'nomeResponsavel', 'responsavel':'nomeResponsavel', 'nomeresponsavel':'nomeResponsavel',
   'telefone do responsavel':'telefoneResponsavel', 'telefone responsavel':'telefoneResponsavel', 'telefone':'telefoneResponsavel', 'celular':'telefoneResponsavel', 'telefoneresponsavel':'telefoneResponsavel',
   'observacoes':'observacoes', 'observacao':'observacoes', 'obs':'observacoes',
-  'idade':'_ignorar', // idade é calculada, não usamos o que vier na planilha
+  'idade':'_ignorar',
 };
 
 function normalizarCabecalho(txt){
   return (txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 }
 
-// Aceita AAAA-MM-DD (já correto) ou DD/MM/AAAA (comum em planilhas brasileiras)
 function normalizarData(txt){
   if(!txt) return '';
   txt = txt.trim();
@@ -987,17 +956,13 @@ function normalizarData(txt){
 }
 
 let csvParseado = [];
-// Lê o arquivo detectando a codificação certa: Excel no Windows costuma salvar CSV em
-// "Windows-1252/Latin1" em vez de UTF-8, o que faz acentos (ç, ã, õ) virarem símbolos estranhos.
 async function lerArquivoComCodificacaoCorreta(file){
   const buffer = await file.arrayBuffer();
   let texto = new TextDecoder('utf-8', {fatal:false}).decode(buffer);
-  // sinais típicos de "mojibake" (texto UTF-8 lido/salvo errado): sequências como Ã§, Ã£, Â, ou caractere de substituição
   const pareceMojibake = /Ã[\x80-\xBF]|Â[\x80-\xBF]|\uFFFD/.test(texto);
   if(pareceMojibake){
     texto = new TextDecoder('windows-1252', {fatal:false}).decode(buffer);
   }
-  // remove BOM se existir
   return texto.replace(/^\uFEFF/, '');
 }
 
@@ -1054,9 +1019,6 @@ document.getElementById('btnImportar').addEventListener('click', async ()=>{
   }catch(e){ toast('Erro: '+e.message); }
 });
 
-// ============================================================
-// PAINEL ADMIN
-// ============================================================
 let todasCriancas = [];
 async function carregarAdmin(){
   try{
@@ -1098,8 +1060,6 @@ function renderAdminTabela(){
   const tbody = document.getElementById('adminTableBody');
   tbody.innerHTML = lista.map(c=>{
     const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento));
-    // uma célula <td> PARA CADA dia (o header tem 5 colunas separadas — aqui também precisa ter 5)
-    // cada célula mostra ENTRADA (verde, em cima) e RETIRADA (azul, embaixo)
     const celulasDias = DIAS.map(d=>{
       const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
       const p = diaObj.presente;
@@ -1183,9 +1143,6 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   a.click();
 });
 
-// ============================================================
-// RELATÓRIO GERAL — resumo visual para impressão
-// ============================================================
 function hexPorNomeCor(nome){
   const entrada = Object.values(CORES_POR_IDADE).find(c=>c.nome===nome);
   return entrada ? entrada.hex : '#9CA3AF';
@@ -1230,14 +1187,12 @@ function montarRelatorioDiaHtml(dados){
   const agora = new Date();
   const dataHoraGerado = agora.toLocaleDateString('pt-BR')+' às '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 
-  // --- dia de referência (o mesmo selecionado na aba Check-in) ---
   const chaveHoje = 'dia'+diaAtual;
   const dataHojeLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
   const presentesHojeLista = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].presente);
   const presentesHoje = presentesHojeLista.length;
   const retiradasHoje = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].retirada && c.presencas[chaveHoje].retirada.liberado).length;
 
-  // --- idade + cor da pulseira, só de quem está presente HOJE (útil pra lanche/atividades do dia) ---
   const idadesFaixa = [4,5,6,7,8,9,10];
   const porIdade = idadesFaixa.map(i => presentesHojeLista.filter(c=>calcIdade(c.dataNascimento)===i).length);
   const outrasIdades = presentesHojeLista.filter(c=>{
@@ -1246,12 +1201,11 @@ function montarRelatorioDiaHtml(dados){
   }).length;
   const maxIdade = Math.max(1, ...porIdade, outrasIdades);
 
-  // --- alergias / restrições agrupadas por tipo, só de quem está presente HOJE ---
   const normalizarTexto = (txt) => (txt||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
   const gruposAlergia = {};
   presentesHojeLista.forEach(c=>{
     const texto = (c.alergiaRestricao||'').trim();
-    if(!texto) return; // sem alergia/restrição → não entra no relatório
+    if(!texto) return;
     const chave = normalizarTexto(texto);
     if(!gruposAlergia[chave]) gruposAlergia[chave] = { texto, qtd:0 };
     gruposAlergia[chave].qtd++;
@@ -1272,7 +1226,7 @@ function montarRelatorioDiaHtml(dados){
 
   return `
     <div class="report-header">
-      <h2>📋 Relatório do Dia — ${dataHojeLabel}</h2>
+      <h2>Relatório do Dia — ${dataHojeLabel}</h2>
       <p class="small-note">Gerado em ${dataHoraGerado}</p>
     </div>
 
@@ -1295,8 +1249,6 @@ function montarRelatorioDiaHtml(dados){
   `;
 }
 
-// Relatório final do evento: compara os 5 dias, só presença por idade (sem alergia —
-// alergia é uma característica da criança, não varia por dia, então não faz sentido "agrupar por dia")
 function montarRelatorioEventoHtml(dados){
   const total = dados.length;
   const agora = new Date();
@@ -1307,12 +1259,10 @@ function montarRelatorioEventoHtml(dados){
   const maxPresentes = Math.max(1, ...presentesPorDia);
 
   const idadesFaixa = [4,5,6,7,8,9,10];
-  // matriz: para cada idade, quantos presentes em cada um dos 5 dias
   const matrizIdadeDia = idadesFaixa.map(idade => {
     const criancasDaIdade = dados.filter(c=>calcIdade(c.dataNascimento)===idade);
     return DIAS.map(d => criancasDaIdade.filter(c=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length);
   });
-  // quantas crianças presentes em pelo menos 1 dia tem idade fora da faixa 4-10
   const criancasForaFaixa = dados.filter(c=>{
     const i = calcIdade(c.dataNascimento);
     return i==null || !idadesFaixa.includes(i);
@@ -1332,7 +1282,7 @@ function montarRelatorioEventoHtml(dados){
 
   return `
     <div class="report-header">
-      <h2>📊 Relatório do Evento — Todos os Dias</h2>
+      <h2>Relatório do Evento — Todos os Dias</h2>
       <p class="small-note">Gerado em ${dataHoraGerado} · ${total} crianças cadastradas no total</p>
     </div>
 
@@ -1366,9 +1316,6 @@ function montarRelatorioEventoHtml(dados){
 document.getElementById('btnAtualizarRelatorio').addEventListener('click', carregarRelatorio);
 document.getElementById('btnImprimirRelatorio').addEventListener('click', ()=> window.print());
 
-// ============================================================
-// CONFIGURAÇÕES
-// ============================================================
 document.getElementById('btnToggleSenha').addEventListener('click', ()=>{
   const campo = document.getElementById('cfgAccessCode');
   const btn = document.getElementById('btnToggleSenha');
