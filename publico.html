@@ -90,13 +90,8 @@ button.secondary{
   <label>Nome completo da criança</label>
   <input type="text" id="inpNome" placeholder="Digite o nome completo" autocomplete="off">
 
-  <label>Data de nascimento da criança <span style="font-weight:400;">(se for o primeiro dia dela no evento)</span></label>
+  <label>Data de nascimento da criança</label>
   <input type="date" id="inpDataNascimento">
-
-  <label>OU a palavra secreta combinada <span style="font-weight:400;">(se ela já fez check-in em outro dia)</span></label>
-  <input type="text" id="inpPalavraSecreta" placeholder="Digite a palavra secreta" autocomplete="off">
-
-  <div class="small-note">Preencha a data de nascimento <b>ou</b> a palavra secreta — não precisa das duas.</div>
 
   <div id="buscaErro"></div>
   <button class="primary" id="btnBuscar">Continuar</button>
@@ -116,8 +111,6 @@ button.secondary{
     <input type="text" id="confResponsavel" autocomplete="off">
     <label>Telefone do responsável *</label>
     <input type="text" id="confTelefone" autocomplete="off">
-    <label>Crie uma palavra secreta * <span style="font-weight:400;">(vai ser pedida na hora de buscar a criança — não esqueça!)</span></label>
-    <input type="text" id="confNovaPalavra" autocomplete="off">
   </div>
 
   <div id="confirmarErro"></div>
@@ -130,8 +123,7 @@ button.secondary{
   <div class="numero-grande" id="sucessoNumero">#000</div>
   <div class="nome-grande" id="sucessoNome">Nome</div>
   <div class="center"><span class="badge" id="sucessoCorBadge">cor</span></div>
-  <div class="alerta-box" style="background:#FFFBEB;border-color:#FDE68A;color:#92400E;" id="sucessoPalavraBox"></div>
-  <p class="small-note center">Guarde essa palavra — vai ser pedida na hora de buscar a criança.</p>
+  <p class="small-note center">O comprovante será impresso na recepção. Você também pode baixar uma cópia abaixo.</p>
   <button class="secondary" id="btnNovoCheckin">Fazer check-in de outra criança (irmãos)</button>
 
   <div id="listaFamiliaBox" class="hidden" style="margin-top:18px;border-top:1px solid var(--cinza-claro);padding-top:14px;">
@@ -186,17 +178,16 @@ function setBotaoCarregando(btn, carregando, textoNormal){
 document.getElementById('btnBuscar').addEventListener('click', async ()=>{
   const nome = document.getElementById('inpNome').value.trim();
   const dataNascimento = document.getElementById('inpDataNascimento').value;
-  const palavraSecreta = document.getElementById('inpPalavraSecreta').value.trim();
   const erroBox = document.getElementById('buscaErro');
   erroBox.innerHTML = '';
 
   if(!nome){ erroBox.innerHTML = '<div class="alerta-box">Digite o nome da criança.</div>'; return; }
-  if(!dataNascimento && !palavraSecreta){ erroBox.innerHTML = '<div class="alerta-box">Preencha a data de nascimento ou a palavra secreta.</div>'; return; }
+  if(!dataNascimento){ erroBox.innerHTML = '<div class="alerta-box">Preencha a data de nascimento.</div>'; return; }
 
   const btn = document.getElementById('btnBuscar');
   setBotaoCarregando(btn, true, 'Continuar');
   try{
-    const dados = await chamarApiPublica('/publico/consultar', { nome, dataNascimento, palavraSecreta, dia: diaAtual });
+    const dados = await chamarApiPublica('/publico/consultar', { nome, dataNascimento, dia: diaAtual });
     ultimoResultado = dados;
     mostrarEtapaConfirmar(dados);
   }catch(e){
@@ -229,7 +220,6 @@ function mostrarEtapaConfirmar(c){
       primeiraVezBox.classList.remove('hidden');
       document.getElementById('confResponsavel').value = c.nomeResponsavel || '';
       document.getElementById('confTelefone').value = c.telefoneResponsavel || '';
-      document.getElementById('confNovaPalavra').value = '';
     }else{
       primeiraVezBox.classList.add('hidden');
     }
@@ -249,28 +239,25 @@ document.getElementById('btnConfirmar').addEventListener('click', async ()=>{
   const corpo = {
     nome: document.getElementById('inpNome').value.trim(),
     dataNascimento: document.getElementById('inpDataNascimento').value,
-    palavraSecreta: document.getElementById('inpPalavraSecreta').value.trim(),
     dia: diaAtual
   };
 
   if(ultimoResultado.primeiraVez && !ultimoResultado.jaConfirmadoHoje){
     const resp = document.getElementById('confResponsavel').value.trim();
     const tel = document.getElementById('confTelefone').value.trim();
-    const novaSenha = document.getElementById('confNovaPalavra').value.trim();
-    if(!resp || !tel || !novaSenha){
-      erroBox.innerHTML = '<div class="alerta-box">Preencha nome do responsável, telefone e crie uma palavra secreta.</div>';
+    if(!resp || !tel){
+      erroBox.innerHTML = '<div class="alerta-box">Preencha nome do responsável e telefone.</div>';
       return;
     }
     corpo.nomeResponsavel = resp;
     corpo.telefoneResponsavel = tel;
-    corpo.novaPalavraSecreta = novaSenha;
   }
 
   const btn = document.getElementById('btnConfirmar');
   setBotaoCarregando(btn, true, 'Confirmar presença');
   try{
     const dados = await chamarApiPublica('/publico/confirmar', corpo);
-    mostrarSucesso(dados, corpo.novaPalavraSecreta || corpo.palavraSecreta);
+    mostrarSucesso(dados);
   }catch(e){
     erroBox.innerHTML = `<div class="alerta-box">${e.message}</div>`;
   }finally{
@@ -291,20 +278,16 @@ function adicionarFilhoConfirmado(dados){
   return lista;
 }
 
-function mostrarSucesso(c, palavraUsada){
+function mostrarSucesso(c){
   document.getElementById('etapaConfirmar').classList.add('hidden');
   document.getElementById('etapaSucesso').classList.remove('hidden');
   document.getElementById('sucessoNumero').textContent = '#'+c.numero;
   document.getElementById('sucessoNome').textContent = c.nomeCompleto;
   document.getElementById('sucessoCorBadge').textContent = c.corPulseira;
   document.getElementById('sucessoCorBadge').style.background = corHexAproximado(c.corPulseira);
-  document.getElementById('sucessoPalavraBox').innerHTML = palavraUsada
-    ? ('🔑 Palavra secreta: <b>'+palavraUsada+'</b>')
-    : '⚠️ Nenhuma palavra secreta cadastrada para esta criança.';
 
   const listaAtualizada = adicionarFilhoConfirmado({
-    id: c.id, numero: c.numero, nomeCompleto: c.nomeCompleto,
-    corPulseira: c.corPulseira, palavraSecreta: palavraUsada || ''
+    id: c.id, numero: c.numero, nomeCompleto: c.nomeCompleto, corPulseira: c.corPulseira
   });
   renderizarListaFamilia(listaAtualizada);
 }
@@ -328,7 +311,7 @@ function baixarImagemComprovante(){
 
   const largura = 640;
   const alturaTopo = 110;
-  const alturaPorFilho = 110;
+  const alturaPorFilho = 90;
   const alturaRodape = 60;
   const altura = alturaTopo + lista.length*alturaPorFilho + alturaRodape;
 
@@ -368,9 +351,6 @@ function baixarImagemComprovante(){
     ctx.font = '13px Arial, sans-serif';
     ctx.fillStyle = '#6B7280';
     ctx.fillText('Pulseira: '+f.corPulseira, 150, y+52);
-    ctx.fillStyle = '#92400E';
-    ctx.font = 'bold 13px Arial, sans-serif';
-    ctx.fillText('Palavra secreta: '+(f.palavraSecreta||'-'), 150, y+70);
 
     y += alturaPorFilho;
   });
@@ -378,7 +358,7 @@ function baixarImagemComprovante(){
   ctx.fillStyle = '#6B7280';
   ctx.font = '12px Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('Apresente este comprovante ou a palavra secreta na hora da retirada.', largura/2, altura-24);
+  ctx.fillText('Apresente este comprovante na hora da retirada.', largura/2, altura-24);
 
   const link = document.createElement('a');
   link.download = 'comprovante-ebf-'+dataLabel.replace('/','-')+'.png';
@@ -397,7 +377,6 @@ function reiniciar(){
   document.getElementById('etapaSucesso').classList.add('hidden');
   document.getElementById('inpNome').value = '';
   document.getElementById('inpDataNascimento').value = '';
-  document.getElementById('inpPalavraSecreta').value = '';
   document.getElementById('buscaErro').innerHTML = '';
   document.getElementById('confirmarErro').innerHTML = '';
   ultimoResultado = null;
