@@ -270,8 +270,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
         <div class="nome" id="compNome">Nome</div>
         <div class="small-note" id="compData">data</div>
       </div>
-      <button class="secondary" id="btnEnviarWhatsapp" style="width:100%;">Enviar comprovante por WhatsApp</button>
-      <button class="secondary" id="btnImprimirComprovante" style="width:100%;margin-top:8px;">Imprimir comprovante</button>
+      <button class="secondary" id="btnImprimirComprovante" style="width:100%;">Imprimir comprovante</button>
       <button class="primary" id="btnConcluirCheckin" style="width:100%;margin-top:8px;">Concluído — buscar próxima criança</button>
     </div>
   </div>
@@ -396,6 +395,28 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <!-- ===================== TAB: ADMIN ===================== -->
 <section id="tab-admin" class="card hidden">
   <h2 style="margin-top:0;">Painel do administrador</h2>
+
+  <div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:16px;">
+    <div class="flex-between">
+      <div>
+        <b>Envio de comprovantes por WhatsApp</b>
+        <div class="small-note" id="pendentesComprovanteInfo">Verificando pendências…</div>
+      </div>
+      <button class="primary" id="btnIniciarEnvioComprovantes">Iniciar envio</button>
+    </div>
+    <div id="filaComprovanteBox" class="hidden" style="margin-top:14px;border-top:1px solid #93C5FD;padding-top:14px;">
+      <div class="small-note" id="filaComprovanteContador"></div>
+      <div style="font-size:18px;font-weight:700;" id="filaComprovanteNome"></div>
+      <div class="small-note" id="filaComprovanteTelefone"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="primary" id="btnAbrirWhatsappFila" style="flex:1;min-width:160px;">Abrir WhatsApp</button>
+        <button class="secondary" id="btnConfirmarEnviadoFila" style="flex:1;min-width:160px;">✔️ Confirmar enviado — próximo</button>
+        <button class="secondary" id="btnPularFila" style="flex:1;min-width:120px;">Pular este</button>
+        <button class="secondary" id="btnFecharFila" style="flex:1;min-width:100px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="stats" id="adminStats"></div>
   <div class="row">
     <input type="text" id="adminSearch" placeholder="Buscar por nome, número, responsável…">
@@ -899,15 +920,9 @@ function telefoneParaWhatsapp(tel){
   return digitos;
 }
 
-document.getElementById('btnEnviarWhatsapp').addEventListener('click', ()=>{
-  const c = criancaSelecionada;
-  if(!c) return;
-  const numeroWhats = telefoneParaWhatsapp(c.telefoneResponsavel);
-  if(!numeroWhats){ toast('Esta criança não tem telefone do responsável cadastrado.'); return; }
-  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
-  const mensagem = `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — pode ser pedida na retirada, junto com a palavra secreta combinada.`;
-  window.open(`https://wa.me/${numeroWhats}?text=${encodeURIComponent(mensagem)}`, '_blank');
-});
+function montarMensagemComprovante(c, dataLabel){
+  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — pode ser pedida na retirada, junto com a palavra secreta combinada.`;
+}
 
 function definirTamanhoPaginaImpressao(tamanho){
   let styleTag = document.getElementById('printPageSizeStyle');
@@ -1262,9 +1277,89 @@ async function carregarAdmin(){
     todasCriancas = await apiCall('/children/all');
     renderAdminStats();
     renderAdminTabela();
+    atualizarContagemPendentesComprovante();
   }catch(e){ toast('Erro ao carregar painel: '+e.message); }
 }
 document.getElementById('btnRefreshAdmin').addEventListener('click', carregarAdmin);
+
+// ============================================================
+// FILA DE ENVIO DE COMPROVANTES POR WHATSAPP (em lote, feito com calma)
+// ============================================================
+let filaComprovantes = [];
+let filaComprovantesIndex = 0;
+
+function listaPendentesComprovante(){
+  const chaveDia = 'dia'+diaAtual;
+  return todasCriancas.filter(c=>{
+    const diaObj = c.presencas && c.presencas[chaveDia];
+    if(!diaObj || !diaObj.presente) return false;
+    if(!telefoneParaWhatsapp(c.telefoneResponsavel)) return false;
+    if(diaObj.comprovanteEnviado && diaObj.comprovanteEnviado.enviado) return false;
+    return true;
+  });
+}
+
+function atualizarContagemPendentesComprovante(){
+  const pendentes = listaPendentesComprovante();
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  document.getElementById('pendentesComprovanteInfo').textContent =
+    `${pendentes.length} comprovante(s) pendente(s) em ${dataLabel} (crianças com presença confirmada, telefone cadastrado, ainda não enviado)`;
+}
+
+document.getElementById('btnIniciarEnvioComprovantes').addEventListener('click', ()=>{
+  filaComprovantes = listaPendentesComprovante();
+  filaComprovantesIndex = 0;
+  if(!filaComprovantes.length){ toast('Nenhum comprovante pendente no momento.'); return; }
+  document.getElementById('filaComprovanteBox').classList.remove('hidden');
+  mostrarItemFilaComprovante();
+});
+
+function mostrarItemFilaComprovante(){
+  if(filaComprovantesIndex >= filaComprovantes.length){
+    document.getElementById('filaComprovanteBox').classList.add('hidden');
+    toast('Envio concluído!');
+    atualizarContagemPendentesComprovante();
+    return;
+  }
+  const c = filaComprovantes[filaComprovantesIndex];
+  document.getElementById('filaComprovanteContador').textContent = `${filaComprovantesIndex+1} de ${filaComprovantes.length}`;
+  document.getElementById('filaComprovanteNome').textContent = `#${c.numero} — ${c.nomeCompleto}`;
+  document.getElementById('filaComprovanteTelefone').textContent = 'Telefone: '+(c.telefoneResponsavel||'-');
+}
+
+document.getElementById('btnAbrirWhatsappFila').addEventListener('click', ()=>{
+  const c = filaComprovantes[filaComprovantesIndex];
+  if(!c) return;
+  const numeroWhats = telefoneParaWhatsapp(c.telefoneResponsavel);
+  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
+  const mensagem = montarMensagemComprovante(c, dataLabel);
+  window.open(`https://wa.me/${numeroWhats}?text=${encodeURIComponent(mensagem)}`, '_blank');
+});
+
+document.getElementById('btnConfirmarEnviadoFila').addEventListener('click', async ()=>{
+  const c = filaComprovantes[filaComprovantesIndex];
+  if(!c) return;
+  const chaveDia = 'dia'+diaAtual;
+  const diaObjAtual = (c.presencas && c.presencas[chaveDia]) || {};
+  try{
+    await apiCall('/child','PUT',{ id:c.id, presencas:{ [chaveDia]: {
+      ...diaObjAtual,
+      comprovanteEnviado: { enviado:true, hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), enviadoPor: CONFIG.operador||'não identificado' }
+    }}});
+    filaComprovantesIndex++;
+    mostrarItemFilaComprovante();
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
+document.getElementById('btnPularFila').addEventListener('click', ()=>{
+  filaComprovantesIndex++;
+  mostrarItemFilaComprovante();
+});
+
+document.getElementById('btnFecharFila').addEventListener('click', ()=>{
+  document.getElementById('filaComprovanteBox').classList.add('hidden');
+  atualizarContagemPendentesComprovante();
+});
 
 function renderAdminStats(){
   const total = todasCriancas.length;
