@@ -231,6 +231,7 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
     <div style="font-size:20px;font-weight:700;" id="selNome">Nome</div>
     <div class="info-line">Idade: <b id="selIdade">-</b></div>
     <div id="selAlergiaBox"></div>
+    <div id="selSemearBox"></div>
 
     <div id="dia1Fields">
       <label>Nome do responsável *</label>
@@ -370,12 +371,17 @@ body.imprimindo-comprovante #comprovanteImpressao .nome{font-size:16px;}
 <section id="tab-importar" class="card hidden">
   <h2 style="margin-top:0;">Importar lista (CSV)</h2>
   <p class="small-note">
-    O CSV precisa ter uma linha de cabeçalho. A ordem das colunas não importa — o sistema
-    reconhece pelo nome (com ou sem acento, maiúsculas/minúsculas). Nomes aceitos: <br>
-    <code>Nome Completo, CPF, Data de Nascimento, Alergia/Restrição, Nome do Responsável, Telefone do Responsável, Observações</code><br>
+    O CSV precisa ter uma linha de cabeçalho. A ordem das colunas não importa, e os nomes não
+    precisam ser exatos — o sistema reconhece por palavras-chave dentro do cabeçalho (com ou sem
+    acento, mesmo em perguntas longas de formulário). Por exemplo, ele reconhece automaticamente
+    colunas como <code>Nome</code>, <code>Número do documento</code>, <code>Data de Nascimento</code>,
+    qualquer coluna que fale de <code>alergia</code> ou <code>restrição</code>, colunas que combinem
+    <code>nome</code> e <code>telefone</code> do <code>responsável</code> num único campo, e
+    <code>Celular</code> (usado como telefone quando o campo de responsável não trouxer telefone).
+    Também reconhece perguntas sobre participação regular (ex: "já participa do Semear?").<br>
     Data de nascimento pode estar em <b>AAAA-MM-DD</b> ou <b>DD/MM/AAAA</b>. A cor da pulseira é calculada
     automaticamente pela idade — não precisa de coluna de cor. Se uma criança da lista já estiver
-    cadastrada (mesmo CPF ou mesmo nome), o cadastro dela é <b>atualizado</b>, não duplicado.
+    cadastrada (mesmo número de documento ou mesmo nome), o cadastro dela é <b>atualizado</b>, não duplicado.
   </p>
   <input type="file" id="csvFile" accept=".csv">
   <div class="small-note">ou cole o conteúdo do CSV abaixo:</div>
@@ -704,6 +710,9 @@ async function selecionarCrianca(id){
     const alergiaBox = document.getElementById('selAlergiaBox');
     alergiaBox.innerHTML = temAlergiaReal(c.alergiaRestricao)
       ? `<div class="alerta-box">⚠️ Alergia/restrição: ${c.alergiaRestricao}</div>` : '';
+
+    document.getElementById('selSemearBox').innerHTML = c.participaSemear
+      ? `<div class="info-line">Participa regularmente do Semear: <b>${c.participaSemear}</b></div>` : '';
 
     const chaveDia = 'dia'+diaAtual;
     const jaConfirmado = c.presencas && c.presencas[chaveDia] && c.presencas[chaveDia].presente;
@@ -1063,16 +1072,24 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
   }catch(e){ toast('Erro: '+e.message); }
 });
 
-const MAPA_CABECALHO = {
-  'nome completo':'nomeCompleto', 'nome':'nomeCompleto', 'nomecompleto':'nomeCompleto', 'criança':'nomeCompleto', 'crianca':'nomeCompleto',
-  'cpf':'cpf',
-  'data de nascimento':'dataNascimento', 'data nascimento':'dataNascimento', 'nascimento':'dataNascimento', 'datanascimento':'dataNascimento',
-  'alergia':'alergiaRestricao', 'alergia/restricao':'alergiaRestricao', 'alergia restricao':'alergiaRestricao', 'restricao':'alergiaRestricao', 'alergiarestricao':'alergiaRestricao',
-  'nome do responsavel':'nomeResponsavel', 'responsavel':'nomeResponsavel', 'nomeresponsavel':'nomeResponsavel',
-  'telefone do responsavel':'telefoneResponsavel', 'telefone responsavel':'telefoneResponsavel', 'telefone':'telefoneResponsavel', 'celular':'telefoneResponsavel', 'telefoneresponsavel':'telefoneResponsavel',
-  'observacoes':'observacoes', 'observacao':'observacoes', 'obs':'observacoes',
-  'idade':'_ignorar',
-};
+const REGRAS_CABECALHO = [
+  { campo:'nomeCompleto', test:h=> h==='nome' || h==='nome completo' || h==='crianca' || h==='nome da crianca' },
+  { campo:'cpf', test:h=> (h==='cpf' || h.includes('numero do documento')) && !h.includes('lider') && !h.includes('quem realizou') },
+  { campo:'dataNascimento', test:h=> h.includes('data') && h.includes('nascimento') },
+  { campo:'alergiaRestricao', test:h=> h.includes('alergia') || h.includes('restricao') },
+  { campo:'nomeResponsavel', test:h=> h.includes('responsavel') && (h.includes('nome') || h.includes('telefone')) },
+  { campo:'telefoneResponsavel', test:h=> (h==='celular' || h==='telefone' || h.includes('celular')) && !h.includes('lider') && !h.includes('quem realizou') },
+  { campo:'participaSemear', test:h=> h.includes('participa') && (h.includes('regularmente') || h.includes('semear')) },
+  { campo:'observacoes', test:h=> h==='observacoes' || h==='observacao' || h==='obs' },
+];
+
+function mapearCabecalho(textoCabecalho){
+  const norm = normalizarCabecalho(textoCabecalho);
+  for(const regra of REGRAS_CABECALHO){
+    if(regra.test(norm)) return regra.campo;
+  }
+  return null;
+}
 
 function normalizarCabecalho(txt){
   return (txt||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
@@ -1104,19 +1121,45 @@ document.getElementById('csvFile').addEventListener('change', async (e)=>{
   document.getElementById('csvPaste').value = await lerArquivoComCodificacaoCorreta(file);
 });
 
-function parseCsv(texto){
-  const linhas = texto.trim().split(/\r?\n/).filter(l=>l.trim());
-  if(linhas.length<2) return [];
-  const sep = (linhas[0].match(/;/g)||[]).length >= (linhas[0].match(/,/g)||[]).length ? ';' : ',';
-  const cabecalhoBruto = linhas[0].split(sep).map(h=>h.trim());
-  const colunas = cabecalhoBruto.map(h => MAPA_CABECALHO[normalizarCabecalho(h)] || null);
+function parseLinhasCsv(texto, sep){
+  const linhas = [];
+  let campo = '', linha = [], dentroAspas = false;
+  for(let i=0;i<texto.length;i++){
+    const c = texto[i];
+    if(dentroAspas){
+      if(c === '"'){
+        if(texto[i+1] === '"'){ campo += '"'; i++; }
+        else dentroAspas = false;
+      } else campo += c;
+    } else {
+      if(c === '"') dentroAspas = true;
+      else if(c === sep){ linha.push(campo); campo=''; }
+      else if(c === '\n'){ linha.push(campo); linhas.push(linha); linha=[]; campo=''; }
+      else if(c === '\r'){ /* ignora — tratado junto do \n */ }
+      else campo += c;
+    }
+  }
+  if(campo!=='' || linha.length){ linha.push(campo); linhas.push(linha); }
+  return linhas.filter(l => !(l.length===1 && l[0].trim()===''));
+}
 
-  return linhas.slice(1).map(linha=>{
-    const valores = linha.split(sep).map(v=>v.trim());
-    const obj = { nomeCompleto:'', cpf:'', dataNascimento:'', alergiaRestricao:'', nomeResponsavel:'', telefoneResponsavel:'', observacoes:'' };
+function parseCsv(texto){
+  const textoLimpo = texto.trim();
+  if(!textoLimpo) return [];
+  const primeiraLinha = textoLimpo.split(/\r?\n/)[0];
+  const sep = (primeiraLinha.match(/;/g)||[]).length >= (primeiraLinha.match(/,/g)||[]).length ? ';' : ',';
+  const linhas = parseLinhasCsv(textoLimpo, sep);
+  if(linhas.length<2) return [];
+  const colunas = linhas[0].map(h => mapearCabecalho(h.trim()));
+
+  return linhas.slice(1).map(valoresBrutos=>{
+    const valores = valoresBrutos.map(v=>v.trim());
+    const obj = { nomeCompleto:'', cpf:'', dataNascimento:'', alergiaRestricao:'', nomeResponsavel:'', telefoneResponsavel:'', participaSemear:'', observacoes:'' };
     colunas.forEach((campo,i)=>{
-      if(!campo || campo==='_ignorar') return;
-      obj[campo] = (valores[i]||'').trim();
+      if(!campo) return;
+      // só preenche se ainda estiver vazio — evita que uma 2ª coluna que caia no mesmo campo
+      // (ex: "Telefone" e "Celular" juntas) sobrescreva o que a primeira já preencheu
+      if(!obj[campo]) obj[campo] = (valores[i]||'').trim();
     });
     obj.dataNascimento = normalizarData(obj.dataNascimento);
     return obj;
@@ -1129,11 +1172,11 @@ document.getElementById('btnPreview').addEventListener('click', ()=>{
   const box = document.getElementById('csvPreview');
   if(!csvParseado.length){ box.innerHTML='<div class="alerta-box">Nenhuma linha válida encontrada. Confira se a primeira linha é o cabeçalho com os nomes das colunas.</div>'; return; }
   box.innerHTML = `<p class="small-note">${csvParseado.length} crianças prontas para importar. Prévia das 5 primeiras:</p>
-    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Nasc.</th><th>Idade</th><th>Pulseira</th><th>Responsável</th><th>Telefone</th></tr></thead>
+    <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Nasc.</th><th>Idade</th><th>Pulseira</th><th>Responsável</th><th>Telefone</th><th>Alergia/Restrição</th></tr></thead>
     <tbody>${csvParseado.slice(0,5).map(c=>{
       const idade = calcIdade(c.dataNascimento);
       const cor = corPorIdade(idade);
-      return `<tr><td>${c.nomeCompleto}</td><td>${c.dataNascimento||'-'}</td><td>${idade!=null?idade:'-'}</td><td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td><td>${c.nomeResponsavel||'-'}</td><td>${c.telefoneResponsavel||'-'}</td></tr>`;
+      return `<tr><td>${c.nomeCompleto}</td><td>${c.dataNascimento||'-'}</td><td>${idade!=null?idade:'-'}</td><td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td><td>${c.nomeResponsavel||'-'}</td><td>${c.telefoneResponsavel||'-'}</td><td>${temAlergiaReal(c.alergiaRestricao)?('⚠️ '+c.alergiaRestricao):'-'}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   document.getElementById('btnImportar').classList.remove('hidden');
 });
@@ -1262,7 +1305,7 @@ document.getElementById('adminCorFilter').addEventListener('change', renderAdmin
 document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const lista = filtrarCriancas();
   const camposDia = d => [`dia${d}_entrada`, `dia${d}_hora_entrada`, `dia${d}_confirmado_por`, `dia${d}_saida`, `dia${d}_hora_saida`, `dia${d}_liberado_por`, `dia${d}_metodo_saida`];
-  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','observacoes', ...DIAS.flatMap(camposDia)];
+  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','participaSemear','observacoes', ...DIAS.flatMap(camposDia)];
   const linhas = [campos.join(';')];
   lista.forEach(c=>{
     const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento)).nome;
@@ -1279,7 +1322,7 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
         retirada.liberado ? (retirada.metodo==='manual'?'manual':'senha') : ''
       ];
     });
-    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.observacoes,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
+    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.participaSemear,c.observacoes,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
   });
   const blob = new Blob(['\ufeff'+linhas.join('\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
