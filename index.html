@@ -132,6 +132,23 @@ th{background:var(--areia);position:sticky;top:0;}
 </head>
 <body>
 
+<div id="modalBoasVindas" class="hidden" style="position:fixed;inset:0;background:rgba(30,58,95,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:380px;width:100%;">
+    <h2 style="margin-top:0;">👋 Bem-vindo(a)</h2>
+    <p class="small-note">Digite o código de acesso combinado com a equipe e o seu nome para começar. Só precisa fazer isso uma vez neste aparelho.</p>
+    <label>Código de acesso</label>
+    <div style="display:flex;gap:8px;align-items:flex-end;">
+      <div style="flex:1;"><input type="password" id="modalSenha" placeholder="senha da equipe"></div>
+      <button type="button" class="secondary" id="btnToggleModalSenha" style="margin-bottom:0;white-space:nowrap;">Mostrar</button>
+    </div>
+    <label>Seu nome</label>
+    <input type="text" id="modalOperador" placeholder="Ex: Maria - Recepção">
+    <div id="modalErro"></div>
+    <button class="primary" id="btnEntrarModal" style="width:100%;">Entrar</button>
+  </div>
+</div>
+
+
 <header>
   <h1>🧒 Check-in — Escola Bíblica de Férias</h1>
   <div class="status" id="connStatus">verificando conexão…</div>
@@ -337,6 +354,7 @@ th{background:var(--areia);position:sticky;top:0;}
 <!-- ===================== TAB: CONFIG ===================== -->
 <section id="tab-config" class="card hidden">
   <h2 style="margin-top:0;">Configurações</h2>
+  <p class="small-note">A URL do Worker já vem configurada — normalmente você não precisa mexer aqui, só usa a tela de login que abre no início. Use esta aba se precisar trocar o código de acesso, seu nome, ou (raro) apontar para outro Worker.</p>
   <label>URL do Worker (Cloudflare)</label>
   <input type="text" id="cfgWorkerUrl" placeholder="https://checkin-ebf.SEUUSUARIO.workers.dev">
   <label>Código de acesso</label>
@@ -363,7 +381,9 @@ th{background:var(--areia);position:sticky;top:0;}
 // ============================================================
 const DIAS = [1,2,3,4,5];
 const DATAS_EVENTO = ['21/07','22/07','23/07','24/07','25/07']; // ajuste aqui se as datas mudarem
+const WORKER_URL_PADRAO = 'https://checkin-ebf.kbomfa.workers.dev'; // já fixo — ninguém precisa digitar
 let CONFIG = JSON.parse(localStorage.getItem('ebf_config') || '{}');
+if(!CONFIG.workerUrl) CONFIG.workerUrl = WORKER_URL_PADRAO;
 
 // Cor da pulseira é sempre calculada pela idade — mesma regra usada no worker.js.
 // Ajuste aqui se as faixas mudarem (e também em worker.js, na constante CORES_POR_IDADE).
@@ -470,10 +490,11 @@ async function init(){
   renderFiltroCor();
   renderListaCoresFixas();
 
-  if(!CONFIG.workerUrl || !CONFIG.accessCode){
-    document.getElementById('connStatus').textContent = '⚠️ configure o Worker na aba Configurações';
-    document.querySelectorAll('nav button').forEach(b=>{ if(b.dataset.tab!=='config') b.disabled=true; b.style.opacity=.4; });
-    document.querySelector('nav button[data-tab="config"]').click();
+  if(!CONFIG.accessCode || !CONFIG.operador){
+    document.getElementById('modalBoasVindas').classList.remove('hidden');
+    document.getElementById('modalSenha').value = CONFIG.accessCode || '';
+    document.getElementById('modalOperador').value = CONFIG.operador || '';
+    document.getElementById('connStatus').textContent = '⚠️ aguardando login';
     return;
   }
 
@@ -484,6 +505,48 @@ async function init(){
     document.getElementById('connStatus').textContent = '❌ falha na conexão: '+e.message;
   }
 }
+
+document.getElementById('btnToggleModalSenha').addEventListener('click', ()=>{
+  const campo = document.getElementById('modalSenha');
+  const btn = document.getElementById('btnToggleModalSenha');
+  if(campo.type==='password'){ campo.type='text'; btn.textContent='Esconder'; }
+  else{ campo.type='password'; btn.textContent='Mostrar'; }
+});
+
+document.getElementById('btnEntrarModal').addEventListener('click', async ()=>{
+  const senha = document.getElementById('modalSenha').value.trim();
+  const operador = document.getElementById('modalOperador').value.trim();
+  const erroBox = document.getElementById('modalErro');
+  if(!senha || !operador){
+    erroBox.innerHTML = '<div class="alerta-box">Preencha a senha e o seu nome.</div>';
+    return;
+  }
+  erroBox.innerHTML = '<div class="small-note">Verificando…</div>';
+  const configTeste = { workerUrl: CONFIG.workerUrl, accessCode: senha, operador };
+  try{
+    const res = await fetch(configTeste.workerUrl.replace(/\/$/,'')+'/index', { headers:{'X-Access-Code':senha} });
+    if(!res.ok){
+      erroBox.innerHTML = '<div class="alerta-box">❌ Código de acesso incorreto. Confira com a equipe.</div>';
+      return;
+    }
+    CONFIG = configTeste;
+    localStorage.setItem('ebf_config', JSON.stringify(CONFIG));
+    document.getElementById('modalBoasVindas').classList.add('hidden');
+    document.getElementById('cfgAccessCode').value = senha;
+    document.getElementById('cfgOperador').value = operador;
+    toast('Bem-vindo(a), '+operador+'!');
+    indexCache = await apiCall('/index');
+    document.getElementById('connStatus').textContent = '✅ conectado — '+indexCache.length+' crianças cadastradas';
+  }catch(e){
+    erroBox.innerHTML = `<div class="alerta-box">❌ Não foi possível conectar (${e.message}). Verifique a internet.</div>`;
+  }
+});
+// permite confirmar apertando Enter no campo de senha ou nome
+['modalSenha','modalOperador'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown', (e)=>{
+    if(e.key==='Enter') document.getElementById('btnEntrarModal').click();
+  });
+});
 
 function renderListaCoresFixas(){
   const box = document.getElementById('listaCoresFixas');
