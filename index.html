@@ -1571,7 +1571,7 @@ function montarRelatorioDiaHtml(dados){
       <div class="report-stat" style="border-top-color:var(--vermelho-alerta);"><div class="num">${totalComAlergia}</div><div class="lbl">Presentes hoje com alergia/restrição</div></div>
     </div>
 
-    <div class="report-section-title">Presentes hoje por idade / pulseira <span class="small-note" style="font-weight:400;">(útil para separar turmas e porções do lanche)</span></div>
+    <div class="report-section-title">Presentes por Idade <span class="small-note" style="font-weight:400;"> </span></div>
     ${presentesHoje===0 ? '<p class="small-note">Nenhuma criança presente ainda hoje.</p>' : `
       ${idadesFaixa.map((idade,i)=> linhaBarras(idade+' anos — '+corPorIdade(idade).nome, porIdade[i], maxIdade, hexPorNomeCor(corPorIdade(idade).nome))).join('')}
       ${outrasIdades>0 ? linhaBarras('Idade não definida', outrasIdades, maxIdade, '#9CA3AF') : ''}
@@ -1626,7 +1626,7 @@ function montarRelatorioEventoHtml(dados){
     <div class="report-section-title">Retiradas confirmadas por dia</div>
     ${DIAS.map((d,i)=> linhaBarras(DATAS_EVENTO[i], retiradasPorDia[i], maxPresentes, 'var(--azul-medio)')).join('')}
 
-    <div class="report-section-title">Presença por idade em cada dia <span class="small-note" style="font-weight:400;">(pra comparar o movimento de cada faixa etária ao longo do evento)</span></div>
+    <div class="report-section-title">Presença por idade/por dia <span class="small-note" style="font-weight:400;"> </span></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Idade</th>${DATAS_EVENTO.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
