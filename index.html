@@ -220,19 +220,28 @@ th{background:var(--areia);position:sticky;top:0;}
 
     <div id="dia1Fields">
       <label>Nome do responsável *</label>
-      <input type="text" id="selResponsavel">
+      <input type="text" id="selResponsavel" autocomplete="off">
       <label>Telefone do responsável *</label>
-      <input type="text" id="selTelefone">
+      <input type="text" id="selTelefone" autocomplete="off">
       <label>Palavra secreta de retirada * <span style="font-weight:400;color:var(--cinza);">(combine com o responsável agora)</span></label>
-      <input type="text" id="selPalavraSecreta" placeholder="Ex: girassol">
+      <input type="text" id="selPalavraSecreta" placeholder="Ex: girassol" autocomplete="off">
     </div>
     <div id="diaOutroFields" class="hidden">
       <div class="info-line">Responsável: <b id="selResponsavelView"></b></div>
       <div class="info-line">Telefone: <b id="selTelefoneView"></b></div>
+      <div class="ok-box" style="background:#FFFBEB;border-color:#FDE68A;color:#92400E;">
+        🔔 Lembre o responsável: a palavra secreta cadastrada é <b id="selPalavraSecretaView"></b> — ele vai precisar dela na hora de buscar a criança.
+      </div>
+      <button class="secondary" id="btnAlterarPalavra" style="font-size:12px;">Trocar palavra secreta</button>
+      <div id="alterarPalavraBox" class="hidden" style="margin-top:8px;">
+        <label>Nova palavra secreta</label>
+        <input type="text" id="selNovaPalavraSecreta" autocomplete="off">
+        <button class="secondary" id="btnSalvarNovaPalavra">Salvar nova palavra</button>
+      </div>
     </div>
 
     <label>Observação (opcional)</label>
-    <textarea id="selObservacao" placeholder="Ex: saiu mais cedo, criança acompanhada por tio, etc."></textarea>
+    <textarea id="selObservacao" placeholder="Ex: saiu mais cedo, criança acompanhada por tio, etc." autocomplete="off"></textarea>
 
     <div id="presencaStatus"></div>
     <button class="primary" id="btnConfirmarPresenca">Confirmar presença</button>
@@ -266,9 +275,11 @@ th{background:var(--areia);position:sticky;top:0;}
     <div id="saidaStatusBox"></div>
 
     <div id="saidaFormBox">
-      <label>Peça a palavra secreta para quem está buscando a criança:</label>
-      <input type="text" id="saidaPalavraInput" placeholder="Digite o que a pessoa disse" autocomplete="off" style="font-size:18px;text-align:center;">
-      <button class="primary" id="btnConfirmarRetirada" disabled style="width:100%;font-size:16px;">Confirmar check-out</button>
+      <p class="small-note" style="text-align:center;">Peça para a pessoa dizer a palavra secreta e compare com a palavra abaixo:</p>
+      <div style="text-align:center;background:var(--areia);border-radius:10px;padding:14px;margin:8px 0;">
+        <div id="saidaPalavraDisplay" style="font-size:30px;font-weight:800;color:var(--azul-noite);letter-spacing:0.5px;">—</div>
+      </div>
+      <button class="primary" id="btnConfirmarRetirada" style="width:100%;font-size:16px;background:var(--verde-ok);">✅ Confere — Confirmar check-out</button>
       <div id="saidaFeedback" style="text-align:center;margin-top:8px;"></div>
 
       <div style="text-align:center;margin-top:14px;">
@@ -321,7 +332,7 @@ th{background:var(--areia);position:sticky;top:0;}
     </div>
   </div>
   <label>Palavra secreta de retirada <span style="font-weight:400;color:var(--cinza);">(combine com o responsável — só quem souber pode buscar a criança)</span></label>
-  <input type="text" id="cPalavraSecreta" placeholder="Ex: girassol">
+  <input type="text" id="cPalavraSecreta" placeholder="Ex: girassol" autocomplete="off">
   <label>Observações</label>
   <textarea id="cObs"></textarea>
   <button class="primary" id="btnCadastrar">Cadastrar criança</button>
@@ -675,6 +686,9 @@ async function selecionarCrianca(id){
       document.getElementById('diaOutroFields').classList.remove('hidden');
       document.getElementById('selResponsavelView').textContent = c.nomeResponsavel||'-';
       document.getElementById('selTelefoneView').textContent = c.telefoneResponsavel||'-';
+      document.getElementById('selPalavraSecretaView').textContent = c.palavraSecreta || '(não cadastrada)';
+      document.getElementById('alterarPalavraBox').classList.add('hidden');
+      document.getElementById('selNovaPalavraSecreta').value = '';
     }
     document.getElementById('selObservacao').value = c.observacoes||'';
 
@@ -702,11 +716,35 @@ async function selecionarCrianca(id){
   }catch(e){ toast('Erro: '+e.message); }
 }
 
+document.getElementById('btnAlterarPalavra').addEventListener('click', ()=>{
+  document.getElementById('alterarPalavraBox').classList.remove('hidden');
+  document.getElementById('selNovaPalavraSecreta').focus();
+});
+
+document.getElementById('btnSalvarNovaPalavra').addEventListener('click', async ()=>{
+  if(!criancaSelecionada) return;
+  const nova = document.getElementById('selNovaPalavraSecreta').value.trim();
+  if(!nova){ toast('Digite a nova palavra secreta.'); return; }
+  try{
+    const atualizado = await apiCall('/child','PUT',{ id:criancaSelecionada.id, palavraSecreta: nova });
+    criancaSelecionada = atualizado;
+    document.getElementById('selPalavraSecretaView').textContent = atualizado.palavraSecreta;
+    document.getElementById('alterarPalavraBox').classList.add('hidden');
+    toast('Palavra secreta atualizada.');
+  }catch(e){ toast('Erro: '+e.message); }
+});
+
 document.getElementById('btnLimparSelecao').addEventListener('click', ()=>{
   criancaSelecionada = null;
   document.getElementById('selectedChildBox').classList.add('hidden');
   document.getElementById('searchInput').value='';
   document.getElementById('searchResults').innerHTML='';
+  document.getElementById('selResponsavel').value='';
+  document.getElementById('selTelefone').value='';
+  document.getElementById('selPalavraSecreta').value='';
+  document.getElementById('selObservacao').value='';
+  document.getElementById('selNovaPalavraSecreta').value='';
+  document.getElementById('alterarPalavraBox').classList.add('hidden');
 });
 
 document.getElementById('btnConfirmarPresenca').addEventListener('click', async ()=>{
@@ -780,7 +818,7 @@ async function selecionarCriancaSaida(id){
     obsBox.innerHTML = `
       ${c.observacoes ? `<div class="alerta-box" style="background:#EFF6FF;border-color:#93C5FD;color:#1E3A5F;"><b>Observação registrada:</b> ${c.observacoes}</div>` : ''}
       <label>Observação <span class="small-note" style="font-weight:400;">(ex: quem está autorizado a buscar)</span></label>
-      <textarea id="saidaObservacao">${c.observacoes||''}</textarea>
+      <textarea id="saidaObservacao" autocomplete="off">${c.observacoes||''}</textarea>
     `;
 
     const chaveDia = 'dia'+diaAtual;
@@ -823,41 +861,23 @@ async function selecionarCriancaSaida(id){
 }
 
 function resetFormularioSaida(){
-  document.getElementById('saidaPalavraInput').value='';
-  document.getElementById('btnConfirmarRetirada').disabled = true;
-  document.getElementById('btnConfirmarRetirada').style.cssText='width:100%;font-size:16px;';
   document.getElementById('saidaFeedback').innerHTML='';
   document.getElementById('saidaManualBox').classList.add('hidden');
-}
 
-document.getElementById('saidaPalavraInput').addEventListener('input', ()=>{
-  const digitado = normalizar(document.getElementById('saidaPalavraInput').value);
   const btn = document.getElementById('btnConfirmarRetirada');
-  const feedback = document.getElementById('saidaFeedback');
-  const secretaCadastrada = normalizar((criancaSaidaSelecionada||{}).palavraSecreta||'');
+  const display = document.getElementById('saidaPalavraDisplay');
+  const secretaCadastrada = (criancaSaidaSelecionada||{}).palavraSecreta || '';
 
   if(!secretaCadastrada){
-    feedback.innerHTML = '<span style="color:var(--cinza);font-size:13px;">Esta criança não tem palavra secreta cadastrada — use "não lembra a palavra" para verificar manualmente.</span>';
+    display.textContent = '(nenhuma cadastrada)';
     btn.disabled = true;
     btn.style.cssText='width:100%;font-size:16px;';
-    return;
-  }
-  if(digitado && digitado===secretaCadastrada){
+    document.getElementById('saidaFeedback').innerHTML = '<span style="color:var(--cinza);font-size:13px;">Esta criança não tem palavra secreta cadastrada — use "não lembra a palavra" para verificar manualmente.</span>';
+  }else{
+    display.textContent = secretaCadastrada;
     btn.disabled = false;
     btn.style.cssText='width:100%;font-size:16px;background:var(--verde-ok);';
-    feedback.innerHTML = '<span style="color:var(--verde-ok);font-weight:600;">✅ Palavra confere — toque para confirmar</span>';
-  }else{
-    btn.disabled = true;
-    btn.style.cssText='width:100%;font-size:16px;';
-    feedback.innerHTML = digitado ? '<span style="color:var(--vermelho-alerta);font-size:13px;">Palavra não confere</span>' : '';
   }
-});
-
-function normalizar(txt){
-  return (txt||'').toString()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g,'');
 }
 
 async function liberarRetirada(metodo){
