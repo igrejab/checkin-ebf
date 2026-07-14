@@ -91,7 +91,7 @@ button.secondary{
   <input type="text" id="inpNome" placeholder="Digite o nome completo" autocomplete="off">
 
   <label>Data de nascimento da criança</label>
-  <input type="date" id="inpDataNascimento">
+  <input type="text" id="inpDataNascimento" inputmode="numeric" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off">
 
   <div id="buscaErro"></div>
   <button class="primary" id="btnBuscar">Continuar</button>
@@ -130,7 +130,9 @@ button.secondary{
     <div class="small-note" style="font-weight:600;color:var(--texto);">Crianças confirmadas hoje neste aparelho:</div>
     <div id="listaFamiliaConteudo"></div>
     <button class="primary" id="btnBaixarComprovante">📸 Baixar comprovante (imagem)</button>
-    <p class="small-note center">Se a imagem não salvar automaticamente, tire um print desta tela como alternativa — o número em cima já é suficiente para apresentar na entrada.</p>
+    <div class="alerta-box" style="background:#FFFBEB;border-color:#FDE68A;color:#92400E;font-size:15px;">
+      📱 Tire um print da tela ou salve o comprovante agora — vai precisar apresentar na entrada.
+    </div>
   </div>
 </div>
 
@@ -158,6 +160,23 @@ function obterDiaAtualPadrao(){
 const diaAtual = obterDiaAtualPadrao();
 let ultimoResultado = null;
 
+document.getElementById('inpDataNascimento').addEventListener('input', (e)=>{
+  let v = e.target.value.replace(/\D/g,'').slice(0,8);
+  if(v.length >= 5) v = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length >= 3) v = v.slice(0,2)+'/'+v.slice(2);
+  e.target.value = v;
+});
+
+// Converte DD/MM/AAAA (o que a pessoa digita) para AAAA-MM-DD (o que o sistema usa por dentro)
+function converterDataParaISO(dataBR){
+  const m = (dataBR||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  const dia = m[1], mes = m[2], ano = m[3];
+  const dataTeste = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+  if(isNaN(dataTeste) || dataTeste.getDate()!==Number(dia) || (dataTeste.getMonth()+1)!==Number(mes)) return null;
+  return `${ano}-${mes}-${dia}`;
+}
+
 document.getElementById('diaLabel').textContent = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
 
 async function chamarApiPublica(caminho, corpo){
@@ -178,12 +197,14 @@ function setBotaoCarregando(btn, carregando, textoNormal){
 
 document.getElementById('btnBuscar').addEventListener('click', async ()=>{
   const nome = document.getElementById('inpNome').value.trim();
-  const dataNascimento = document.getElementById('inpDataNascimento').value;
+  const dataDigitada = document.getElementById('inpDataNascimento').value.trim();
   const erroBox = document.getElementById('buscaErro');
   erroBox.innerHTML = '';
 
   if(!nome){ erroBox.innerHTML = '<div class="alerta-box">Digite o nome da criança.</div>'; return; }
-  if(!dataNascimento){ erroBox.innerHTML = '<div class="alerta-box">Preencha a data de nascimento.</div>'; return; }
+  if(!dataDigitada){ erroBox.innerHTML = '<div class="alerta-box">Preencha a data de nascimento.</div>'; return; }
+  const dataNascimento = converterDataParaISO(dataDigitada);
+  if(!dataNascimento){ erroBox.innerHTML = '<div class="alerta-box">Data inválida. Use o formato DD/MM/AAAA.</div>'; return; }
 
   const btn = document.getElementById('btnBuscar');
   setBotaoCarregando(btn, true, 'Continuar');
@@ -239,7 +260,7 @@ document.getElementById('btnConfirmar').addEventListener('click', async ()=>{
 
   const corpo = {
     nome: document.getElementById('inpNome').value.trim(),
-    dataNascimento: document.getElementById('inpDataNascimento').value,
+    dataNascimento: converterDataParaISO(document.getElementById('inpDataNascimento').value.trim()),
     dia: diaAtual
   };
 
