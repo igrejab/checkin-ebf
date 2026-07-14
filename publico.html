@@ -130,6 +130,7 @@ button.secondary{
     <div class="small-note" style="font-weight:600;color:var(--texto);">Crianças confirmadas hoje neste aparelho:</div>
     <div id="listaFamiliaConteudo"></div>
     <button class="primary" id="btnBaixarComprovante">📸 Baixar comprovante (imagem)</button>
+    <p class="small-note center">Se a imagem não salvar automaticamente, tire um print desta tela como alternativa — o número em cima já é suficiente para apresentar na entrada.</p>
   </div>
 </div>
 
@@ -360,10 +361,31 @@ function baixarImagemComprovante(){
   ctx.textAlign = 'center';
   ctx.fillText('Apresente este comprovante na hora da retirada.', largura/2, altura-24);
 
-  const link = document.createElement('a');
-  link.download = 'comprovante-ebf-'+dataLabel.replace('/','-')+'.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  const nomeArquivo = 'comprovante-ebf-'+dataLabel.replace('/','-')+'.png';
+
+  canvas.toBlob(async (blob)=>{
+    if(!blob) return;
+    const arquivo = new File([blob], nomeArquivo, { type:'image/png' });
+
+    // Tenta usar o compartilhamento nativo do celular — no iOS e na maioria dos
+    // Android, isso abre a opção de "Salvar imagem" direto na galeria/Fotos.
+    if(navigator.canShare && navigator.canShare({ files:[arquivo] })){
+      try{
+        await navigator.share({ files:[arquivo], title:'Comprovante EBF' });
+        return;
+      }catch(e){
+        if(e.name === 'AbortError') return; // usuário cancelou o compartilhamento de propósito
+        // se falhar por outro motivo, cai no download tradicional abaixo
+      }
+    }
+
+    // Alternativa: baixar o arquivo (pode cair na pasta Downloads em vez da galeria,
+    // dependendo do celular — por isso reforçamos a opção de print de tela também)
+    const link = document.createElement('a');
+    link.download = nomeArquivo;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  }, 'image/png');
 }
 
 document.getElementById('btnBaixarComprovante').addEventListener('click', baixarImagemComprovante);
