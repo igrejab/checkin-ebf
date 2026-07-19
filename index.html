@@ -105,6 +105,17 @@ button.danger{background:var(--vermelho-alerta);color:#fff;border:none;padding:8
 }
 .info-line{font-size:14px;color:var(--cinza);margin:2px 0;}
 .info-line b{color:var(--texto);}
+.aniversario-box{
+  background:#FFF4E8;border:1px solid #F3B27A;color:#9A4E12;
+  padding:10px 14px;border-radius:8px;font-size:14px;margin:10px 0;font-weight:600;
+}
+.autorizacao-toggle{display:flex;gap:8px;margin:6px 0 12px;}
+.toggle-opt{
+  flex:1;padding:9px 10px;border-radius:8px;border:1px solid var(--cinza-claro);background:#fff;
+  cursor:pointer;font-size:14px;font-weight:600;color:var(--cinza);text-align:center;
+}
+.toggle-opt.ativo-sim{background:#F0FDF4;border-color:#86EFAC;color:#166534;}
+.toggle-opt.ativo-nao{background:#FEF2F2;border-color:#FCA5A5;color:#991B1B;}
 table{width:100%;border-collapse:collapse;font-size:13px;}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--cinza-claro);}
 th{background:var(--areia);position:sticky;top:0;}
@@ -240,8 +251,15 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
     </div>
     <div style="font-size:20px;font-weight:700;" id="selNome">Nome</div>
     <div class="info-line">Idade: <b id="selIdade">-</b></div>
+    <div id="selAniversarioBox"></div>
     <div id="selAlergiaBox"></div>
     <div id="selSemearBox"></div>
+
+    <label>Trouxe o termo de autorização?</label>
+    <div class="autorizacao-toggle">
+      <button type="button" class="toggle-opt" id="btnAutorizacaoSim" data-val="Sim">✅ Sim</button>
+      <button type="button" class="toggle-opt" id="btnAutorizacaoNao" data-val="Não">❌ Não</button>
+    </div>
 
     <div id="dia1Fields">
       <label>Nome do responsável *</label>
@@ -401,7 +419,7 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
         <tr>
           <th>#</th><th>Nome</th><th>Idade</th><th>Cor</th>
           <th id="thD1">21/07</th><th id="thD2">22/07</th><th id="thD3">23/07</th><th id="thD4">24/07</th><th id="thD5">25/07</th>
-          <th>Responsável</th><th>Telefone</th><th>Alergia</th><th>Obs.</th><th></th>
+          <th>Responsável</th><th>Telefone</th><th>Alergia</th><th>Obs.</th><th>Autorização</th><th></th>
         </tr>
       </thead>
       <tbody id="adminTableBody"></tbody>
@@ -538,6 +556,7 @@ function obterDiaAtualPadrao(){
 let diaAtual = obterDiaAtualPadrao();
 let diaRelatorio = obterDiaAtualPadrao();
 let criancaSelecionada = null;
+let autorizacaoAtual = '';
 
 function workerUrl(){ return (CONFIG.workerUrl||'').replace(/\/$/,''); }
 
@@ -754,6 +773,25 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
   });
 });
 
+function estaAniversariando(dataNascimento){
+  if(!dataNascimento) return false;
+  const d = new Date(dataNascimento+'T00:00:00');
+  if(isNaN(d)) return false;
+  const dia = d.getDate();
+  const mes = d.getMonth()+1;
+  return mes===7 && dia>=21 && dia<=25;
+}
+
+function definirAutorizacaoUI(valor){
+  autorizacaoAtual = valor || '';
+  const btnSim = document.getElementById('btnAutorizacaoSim');
+  const btnNao = document.getElementById('btnAutorizacaoNao');
+  btnSim.classList.toggle('ativo-sim', autorizacaoAtual==='Sim');
+  btnNao.classList.toggle('ativo-nao', autorizacaoAtual==='Não');
+}
+document.getElementById('btnAutorizacaoSim').addEventListener('click', ()=> definirAutorizacaoUI('Sim'));
+document.getElementById('btnAutorizacaoNao').addEventListener('click', ()=> definirAutorizacaoUI('Não'));
+
 async function selecionarCrianca(id){
   try{
     const c = await apiCall('/child?id='+id);
@@ -771,6 +809,11 @@ async function selecionarCrianca(id){
     const alergiaBox = document.getElementById('selAlergiaBox');
     alergiaBox.innerHTML = temAlergiaReal(c.alergiaRestricao)
       ? `<div class="alerta-box">⚠️ Alergia/restrição: ${c.alergiaRestricao}</div>` : '';
+
+    document.getElementById('selAniversarioBox').innerHTML = estaAniversariando(c.dataNascimento)
+      ? `<div class="aniversario-box">🎂 Aniversariante da semana!</div>` : '';
+
+    definirAutorizacaoUI(c.termoAutorizacao || '');
 
     document.getElementById('selSemearBox').innerHTML = c.participaSemear
       ? `<div class="info-line">Participa regularmente do Semear: <b>${c.participaSemear}</b></div>` : '';
@@ -826,6 +869,8 @@ document.getElementById('btnLimparSelecao').addEventListener('click', ()=>{
   document.getElementById('selResponsavel').value='';
   document.getElementById('selTelefone').value='';
   document.getElementById('selObservacao').value='';
+  document.getElementById('selAniversarioBox').innerHTML='';
+  definirAutorizacaoUI('');
 });
 
 document.getElementById('btnConfirmarPresenca').addEventListener('click', async ()=>{
@@ -845,6 +890,7 @@ document.getElementById('btnConfirmarPresenca').addEventListener('click', async 
   const payload = {
     id: criancaSelecionada.id,
     observacoes: document.getElementById('selObservacao').value,
+    termoAutorizacao: autorizacaoAtual,
     presencas: { [chaveDia]: {
       presente:true,
       hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
@@ -926,6 +972,8 @@ document.getElementById('btnConcluirCheckin').addEventListener('click', ()=>{
   document.getElementById('comprovanteBox').classList.add('hidden');
   document.getElementById('btnConfirmarPresenca').classList.remove('hidden');
   document.getElementById('selectedChildBox').classList.add('hidden');
+  document.getElementById('selAniversarioBox').innerHTML='';
+  definirAutorizacaoUI('');
 });
 
 document.getElementById('cNascimento').addEventListener('change', ()=>{
@@ -1297,6 +1345,9 @@ function renderAdminTabela(){
         <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${tituloEntrada}">${p?'✓':'–'}</span>
       </td>`;
     }).join('');
+    const autorizacaoVal = c.termoAutorizacao || '';
+    const autorizacaoLabel = autorizacaoVal==='Sim' ? '✅ Sim' : (autorizacaoVal==='Não' ? '❌ Não' : '— definir');
+    const autorizacaoCor = autorizacaoVal==='Sim' ? 'background:#F0FDF4;color:#166534;border:1px solid #86EFAC;' : (autorizacaoVal==='Não' ? 'background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5;' : 'background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB;');
     return `<tr>
       <td>#${c.numero}</td>
       <td>${c.nomeCompleto}</td>
@@ -1307,9 +1358,21 @@ function renderAdminTabela(){
       <td>${c.telefoneResponsavel||'-'}</td>
       <td>${temAlergiaReal(c.alergiaRestricao)? '⚠️ '+c.alergiaRestricao : '-'}</td>
       <td>${c.observacoes||'-'}</td>
+      <td><span data-autorizacao-id="${c.id}" data-autorizacao-val="${autorizacaoVal}" style="cursor:pointer;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:600;white-space:nowrap;${autorizacaoCor}" title="Clique para alternar Sim/Não">${autorizacaoLabel}</span></td>
       <td><button class="danger" data-del="${c.id}">Excluir</button></td>
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('[data-autorizacao-id]').forEach(span=>{
+    span.onclick = async ()=>{
+      const id = span.dataset.autorizacaoId;
+      const atual = span.dataset.autorizacaoVal;
+      const proximo = atual==='Sim' ? 'Não' : (atual==='Não' ? '' : 'Sim');
+      try{
+        await apiCall('/child','PUT',{ id, termoAutorizacao: proximo });
+        carregarAdmin();
+      }catch(e){ toast('Erro: '+e.message); }
+    };
+  });
   tbody.querySelectorAll('[data-undo-id]').forEach(dot=>{
     dot.onclick = async ()=>{
       const id = dot.dataset.undoId, dia = dot.dataset.undoDia;
@@ -1341,7 +1404,7 @@ document.getElementById('adminCorFilter').addEventListener('change', renderAdmin
 document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const lista = filtrarCriancas();
   const camposDia = d => [`dia${d}_entrada`, `dia${d}_hora_entrada`, `dia${d}_confirmado_por`];
-  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','participaSemear','observacoes', ...DIAS.flatMap(camposDia)];
+  const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','participaSemear','observacoes','termoAutorizacao', ...DIAS.flatMap(camposDia)];
   const linhas = [campos.join(';')];
   lista.forEach(c=>{
     const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento)).nome;
@@ -1353,7 +1416,7 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
         diaObj.presente ? (diaObj.confirmadoPor||'') : ''
       ];
     });
-    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.participaSemear,c.observacoes,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
+    linhas.push([c.numero,c.nomeCompleto,c.idade,cor,c.cpf,c.dataNascimento,c.nomeResponsavel,c.telefoneResponsavel,c.alergiaRestricao,c.participaSemear,c.observacoes,c.termoAutorizacao,...colunasDias].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';'));
   });
   const blob = new Blob(['\ufeff'+linhas.join('\n')], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
