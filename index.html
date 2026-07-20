@@ -515,6 +515,9 @@ function corPorIdade(idade){
   const faixa = FAIXAS_COR_IDADE.find(f=>idade>=f.min && idade<=f.max);
   return faixa || {nome:'-', hex:'#9CA3AF'};
 }
+function normalizarBusca(txt){
+  return (txt||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
 
 function corTextColor(hex){
   const c = (hex||'#6B7280').replace('#','');
@@ -756,10 +759,10 @@ function montarSeletorDiaRelatorio(){
 }
 
 document.getElementById('searchInput').addEventListener('input', (e)=>{
-  const termo = e.target.value.trim().toLowerCase();
+  const termo = normalizarBusca(e.target.value);
   const box = document.getElementById('searchResults');
   if(termo.length<2){ box.innerHTML=''; return; }
-  const resultados = indexCache.filter(c=>c.nomeCompleto.toLowerCase().includes(termo)).slice(0,15);
+  const resultados = indexCache.filter(c=>normalizarBusca(c.nomeCompleto).includes(termo)).slice(0,15);
   box.innerHTML = resultados.map(c=>`
     <div class="search-item" data-id="${c.id}">
       <span>
@@ -1321,11 +1324,11 @@ function renderFiltroCor(){
 }
 
 function filtrarCriancas(){
-  const termo = document.getElementById('adminSearch').value.trim().toLowerCase();
+  const termo = normalizarBusca(document.getElementById('adminSearch').value);
   const diaFiltro = document.getElementById('adminDayFilter').value;
   const corFiltro = document.getElementById('adminCorFilter').value;
   return todasCriancas.filter(c=>{
-    if(termo && !(c.nomeCompleto.toLowerCase().includes(termo) || String(c.numero).includes(termo) || (c.nomeResponsavel||'').toLowerCase().includes(termo))) return false;
+    if(termo && !(normalizarBusca(c.nomeCompleto).includes(termo) || String(c.numero).includes(termo) || normalizarBusca(c.nomeResponsavel).includes(termo))) return false;
     if(diaFiltro && !(c.presencas && c.presencas[diaFiltro] && c.presencas[diaFiltro].presente)) return false;
     if(corFiltro && corPorIdade(c.idade).nome!==corFiltro) return false;
     return true;
