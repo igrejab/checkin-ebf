@@ -503,12 +503,12 @@ let CONFIG = JSON.parse(localStorage.getItem('ebf_config') || '{}');
 if(!CONFIG.workerUrl) CONFIG.workerUrl = WORKER_URL_PADRAO;
 
 const FAIXAS_COR_IDADE = [
-  {min:0, max:5, nome:'Branco', hex:'#FFFFFF'},
-  {min:6, max:6, nome:'Vermelho', hex:'#C13B3B'},
-  {min:7, max:7, nome:'Laranja', hex:'#E07B39'},
-  {min:8, max:8, nome:'Azul', hex:'#2C5F8A'},
-  {min:9, max:9, nome:'Amarelo', hex:'#D8A227'},
-  {min:10, max:12, nome:'Cinza', hex:'#6B7280'}
+  {min:0, max:4, nome:'Branco', hex:'#FFFFFF'},
+  {min:5, max:5, nome:'Vermelho', hex:'#C13B3B'},
+  {min:6, max:6, nome:'Laranja', hex:'#E07B39'},
+  {min:7, max:7, nome:'Azul', hex:'#2C5F8A'},
+  {min:8, max:9, nome:'Amarelo', hex:'#D8A227'},
+  {min:10, max:11, nome:'Cinza', hex:'#6B7280'}
 ];
 function corPorIdade(idade){
   if(idade==null) return {nome:'-', hex:'#9CA3AF'};
