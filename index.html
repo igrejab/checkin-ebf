@@ -407,6 +407,7 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   </div>
 
   <div class="stats" id="adminStats"></div>
+  <div id="alertaAutorizacaoBox"></div>
   <div class="row">
     <input type="text" id="adminSearch" placeholder="Buscar por nome, número, responsável…">
     <select id="adminDayFilter">
@@ -418,6 +419,10 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
       <option value="dia5">Presentes — 25/07</option>
     </select>
     <select id="adminCorFilter"><option value="">Todas as cores</option></select>
+    <select id="adminSort">
+      <option value="numero">Ordenar por número</option>
+      <option value="nome">Ordenar por nome (A-Z)</option>
+    </select>
   </div>
   <div class="flex-between" style="margin:10px 0;">
     <button class="secondary" id="btnRefreshAdmin">Atualizar</button>
@@ -1164,11 +1169,53 @@ async function carregarAdmin(){
     todasCriancas = await apiCall('/children/all');
     renderAdminStats();
     renderAdminTabela();
+    renderAlertaAutorizacao();
     atualizarContagemPendentesComprovante();
     atualizarContagemPendentesImpressao();
   }catch(e){ toast('Erro ao carregar painel: '+e.message); }
 }
 document.getElementById('btnRefreshAdmin').addEventListener('click', carregarAdmin);
+
+function renderAlertaAutorizacao(){
+  const box = document.getElementById('alertaAutorizacaoBox');
+  const pendentes = todasCriancas
+    .filter(c => c.termoAutorizacao !== 'Sim')
+    .sort((a,b)=> (a.numero||0)-(b.numero||0));
+
+  if(pendentes.length===0){
+    box.innerHTML = `<div class="ok-box" style="margin:10px 0;">✅ Todo mundo já tem o termo de autorização de imagem confirmado.</div>`;
+    return;
+  }
+
+  const listaHtml = pendentes.map(c=>
+    `<li>#${c.numero} — ${c.nomeCompleto}${c.termoAutorizacao==='Não' ? ' <span style="color:#991B1B;">(marcado como Não)</span>' : ' <span style="color:#6B7280;">(não informado)</span>'}</li>`
+  ).join('');
+
+  box.innerHTML = `
+    <div class="alerta-box" style="margin:10px 0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>⚠️ <b>${pendentes.length} criança(s)</b> estão SEM o termo de autorização de imagem confirmado — resolver antes do check-in de amanhã.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="secondary" id="btnToggleListaAutorizacao" style="font-size:13px;padding:6px 10px;">Ver lista</button>
+          <button class="secondary" id="btnExportarAutorizacao" style="font-size:13px;padding:6px 10px;">Exportar lista</button>
+        </div>
+      </div>
+      <ul id="listaAutorizacaoPendente" class="hidden" style="margin:10px 0 0;padding-left:20px;font-size:14px;max-height:220px;overflow-y:auto;">${listaHtml}</ul>
+    </div>`;
+
+  document.getElementById('btnToggleListaAutorizacao').addEventListener('click', ()=>{
+    document.getElementById('listaAutorizacaoPendente').classList.toggle('hidden');
+  });
+  document.getElementById('btnExportarAutorizacao').addEventListener('click', ()=>{
+    const linhas = [['Numero','Nome','Status'], ...pendentes.map(c=>[c.numero, c.nomeCompleto, c.termoAutorizacao||'Não informado'])];
+    const csv = linhas.map(l=>l.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';')).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'termos_autorizacao_pendentes.csv';
+    a.click();
+  });
+}
 
 // ============================================================
 // FILA DE ENVIO DE COMPROVANTES POR WHATSAPP (em lote, feito com calma)
@@ -1341,12 +1388,18 @@ function filtrarCriancas(){
   const termo = normalizarBusca(document.getElementById('adminSearch').value);
   const diaFiltro = document.getElementById('adminDayFilter').value;
   const corFiltro = document.getElementById('adminCorFilter').value;
-  return todasCriancas.filter(c=>{
+  const ordenarPor = document.getElementById('adminSort').value;
+  const resultado = todasCriancas.filter(c=>{
     if(termo && !(normalizarBusca(c.nomeCompleto).includes(termo) || String(c.numero).includes(termo) || normalizarBusca(c.nomeResponsavel).includes(termo))) return false;
     if(diaFiltro && !(c.presencas && c.presencas[diaFiltro] && c.presencas[diaFiltro].presente)) return false;
     if(corFiltro && corPorIdade(c.idade).nome!==corFiltro) return false;
     return true;
   });
+  resultado.sort((a,b)=>{
+    if(ordenarPor==='nome') return normalizarBusca(a.nomeCompleto).localeCompare(normalizarBusca(b.nomeCompleto));
+    return (a.numero||0) - (b.numero||0);
+  });
+  return resultado;
 }
 
 function renderAdminTabela(){
@@ -1444,6 +1497,7 @@ function renderAdminTabela(){
 document.getElementById('adminSearch').addEventListener('input', renderAdminTabela);
 document.getElementById('adminDayFilter').addEventListener('change', renderAdminTabela);
 document.getElementById('adminCorFilter').addEventListener('change', renderAdminTabela);
+document.getElementById('adminSort').addEventListener('change', renderAdminTabela);
 
 document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const lista = filtrarCriancas();
