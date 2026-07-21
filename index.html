@@ -188,6 +188,7 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   body.imprimindo-comprovante #comprovanteImpressao{display:block !important;}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -219,6 +220,7 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   <button data-tab="checkin" class="active">Check-in</button>
   <button data-tab="cadastro">Cadastrar</button>
   <button data-tab="importar">Importar Lista</button>
+  <button data-tab="renumerar">Corrigir Numeração</button>
   <button data-tab="admin">Painel Admin</button>
   <button data-tab="relatorio">Relatório</button>
   <button data-tab="config">Configurações</button>
@@ -344,6 +346,18 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   <button class="secondary" id="btnPreview">Pré-visualizar</button>
   <div id="csvPreview"></div>
   <button class="primary hidden" id="btnImportar">Confirmar importação</button>
+</section>
+
+<section id="tab-renumerar" class="card hidden">
+  <h2 style="margin-top:0;">Corrigir numeração (etiquetas já impressas)</h2>
+  <p class="small-note">Envie a planilha com as colunas <b>Numero</b> e <b>Nome</b> (o número correto que já está nas etiquetas). O sistema vai localizar cada criança pelo nome no cadastro atual e ajustar o número dela para bater com a etiqueta — sem mexer em nenhum outro dado.</p>
+  <input type="file" id="renumFile" accept=".xlsx,.csv">
+  <div class="small-note">Ou cole abaixo, uma linha por criança, no formato <code>numero;nome</code> (ou separado por vírgula/tab):</div>
+  <textarea id="renumPaste" style="min-height:140px;" placeholder="1;DAVI NUNES ALVES BOMFA&#10;2;Pierre Lucas Nantes Kolins"></textarea>
+  <button class="secondary" id="btnRenumPreview">Comparar com o cadastro atual</button>
+  <div id="renumPreview"></div>
+  <button class="primary hidden" id="btnRenumAplicar">Aplicar numeração correta</button>
+  <div id="renumResultado"></div>
 </section>
 
 <!-- ===================== TAB: ADMIN ===================== -->
@@ -1352,7 +1366,7 @@ function renderAdminTabela(){
     const autorizacaoLabel = autorizacaoVal==='Sim' ? '✅ Sim' : (autorizacaoVal==='Não' ? '❌ Não' : '— definir');
     const autorizacaoCor = autorizacaoVal==='Sim' ? 'background:#F0FDF4;color:#166534;border:1px solid #86EFAC;' : (autorizacaoVal==='Não' ? 'background:#FEF2F2;color:#991B1B;border:1px solid #FCA5A5;' : 'background:#F3F4F6;color:#6B7280;border:1px solid #E5E7EB;');
     return `<tr>
-      <td>#${c.numero}</td>
+      <td><span data-numero-id="${c.id}" data-numero-val="${c.numero}" style="cursor:pointer;font-weight:600;border-bottom:1px dashed var(--cinza-claro);" title="Clique para editar o número">#${c.numero}</span></td>
       <td>${c.nomeCompleto}</td>
       <td>${c.idade!=null?c.idade:calcIdade(c.dataNascimento)}</td>
       <td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td>
@@ -1365,6 +1379,33 @@ function renderAdminTabela(){
       <td><button class="danger" data-del="${c.id}">Excluir</button></td>
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('[data-numero-id]').forEach(span=>{
+    span.onclick = ()=>{
+      const id = span.dataset.numeroId;
+      const atual = span.dataset.numeroVal;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.value = atual;
+      input.style.cssText = 'width:70px;padding:4px 6px;font-weight:600;';
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+      const salvar = async ()=>{
+        const novo = parseInt(input.value, 10);
+        if(!novo || novo===parseInt(atual,10)){ carregarAdmin(); return; }
+        try{
+          await apiCall('/child','PUT',{ id, numero: novo });
+          toast(`Número atualizado para #${novo}.`);
+        }catch(e){ toast('Erro: '+e.message); }
+        carregarAdmin();
+      };
+      input.addEventListener('blur', salvar);
+      input.addEventListener('keydown', (e)=>{
+        if(e.key==='Enter') input.blur();
+        if(e.key==='Escape'){ input.removeEventListener('blur', salvar); carregarAdmin(); }
+      });
+    };
+  });
   tbody.querySelectorAll('[data-autorizacao-id]').forEach(span=>{
     span.onclick = async ()=>{
       const id = span.dataset.autorizacaoId;
@@ -1673,6 +1714,136 @@ document.getElementById('btnConfirmarApagarTudo').addEventListener('click', asyn
     document.getElementById('apagarTudoBox').classList.add('hidden');
     indexCache = [];
   }catch(e){ toast('Erro: '+e.message); }
+});
+
+// ===================== Corrigir Numeração =====================
+let listaNumeracaoCorreta = [];
+let renumeracaoPendente = [];
+
+function lerXlsxComoLinhas(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const linhas = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  return linhas;
+}
+
+function parsearLinhasNumeroNome(linhas){
+  const resultado = [];
+  linhas.forEach(linha=>{
+    if(!Array.isArray(linha) || linha.length<2) return;
+    const numeroTxt = String(linha[0]).trim();
+    const nome = String(linha[1]).trim();
+    if(!numeroTxt || !nome) return;
+    const numero = parseInt(numeroTxt.replace(/\D/g,''), 10);
+    if(!numero || isNaN(numero)) return; // pula cabeçalho ("Numero","Nome") e linhas inválidas
+    resultado.push({numero, nome});
+  });
+  return resultado;
+}
+
+function parsearPasteNumeroNome(texto){
+  const linhas = texto.split('\n').map(l=>l.trim()).filter(Boolean);
+  return linhas.map(l=>l.split(/;|\t|,/)).map(cols=>[cols[0], cols.slice(1).join(',')]);
+}
+
+document.getElementById('renumFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.name.toLowerCase().endsWith('.csv')){
+    const texto = await file.text();
+    listaNumeracaoCorreta = parsearLinhasNumeroNome(parsearPasteNumeroNome(texto));
+  } else {
+    const buffer = await file.arrayBuffer();
+    listaNumeracaoCorreta = parsearLinhasNumeroNome(lerXlsxComoLinhas(buffer));
+  }
+  document.getElementById('renumPaste').value = '';
+  toast(`${listaNumeracaoCorreta.length} linha(s) lida(s) do arquivo.`);
+});
+
+document.getElementById('btnRenumPreview').addEventListener('click', async ()=>{
+  if(document.getElementById('renumPaste').value.trim()){
+    listaNumeracaoCorreta = parsearLinhasNumeroNome(parsearPasteNumeroNome(document.getElementById('renumPaste').value));
+  }
+  if(!listaNumeracaoCorreta.length){
+    toast('Envie o arquivo ou cole a lista antes de comparar.');
+    return;
+  }
+  let criancasAtuais;
+  try{
+    criancasAtuais = await apiCall('/children/all');
+  }catch(e){ toast('Erro ao carregar cadastro atual: '+e.message); return; }
+
+  const porNome = new Map();
+  criancasAtuais.forEach(c=>{
+    const chave = normalizarBusca(c.nomeCompleto);
+    if(!porNome.has(chave)) porNome.set(chave, []);
+    porNome.get(chave).push(c);
+  });
+
+  renumeracaoPendente = [];
+  let contNaoEncontrada = 0, contDuplicada = 0, contCorreta = 0;
+  const linhasPreview = listaNumeracaoCorreta.map(item=>{
+    const chave = normalizarBusca(item.nome);
+    const candidatos = porNome.get(chave) || [];
+    let status, corLinha, criancaEncontrada = null;
+    if(candidatos.length===0){
+      status = '❌ Não encontrada no cadastro';
+      corLinha = 'background:#FEF2F2;';
+      contNaoEncontrada++;
+    } else if(candidatos.length>1){
+      status = '⚠️ Nome duplicado no cadastro — ajuste manual';
+      corLinha = 'background:#FFFBEB;';
+      contDuplicada++;
+    } else {
+      criancaEncontrada = candidatos[0];
+      if(criancaEncontrada.numero === item.numero){
+        status = '✅ Já está correto';
+        corLinha = '';
+        contCorreta++;
+      } else {
+        status = `Vai mudar de #${criancaEncontrada.numero} para #${item.numero}`;
+        corLinha = 'background:#EFF6FF;';
+        renumeracaoPendente.push({id:criancaEncontrada.id, nome:criancaEncontrada.nomeCompleto, numeroAtual:criancaEncontrada.numero, numeroNovo:item.numero});
+      }
+    }
+    return `<tr style="${corLinha}"><td>#${item.numero}</td><td>${item.nome}</td><td>${criancaEncontrada?criancaEncontrada.nomeCompleto:'-'}</td><td>${status}</td></tr>`;
+  }).join('');
+
+  document.getElementById('renumPreview').innerHTML = `
+    <div class="info-line" style="margin:10px 0;">
+      <b>${renumeracaoPendente.length}</b> vão mudar de número · <b>${contCorreta}</b> já corretas ·
+      <b>${contNaoEncontrada}</b> não encontradas · <b>${contDuplicada}</b> duplicadas (ajuste manual)
+    </div>
+    <div style="overflow-x:auto;"><table>
+      <thead><tr><th>Nº correto</th><th>Nome (planilha)</th><th>Criança encontrada</th><th>Status</th></tr></thead>
+      <tbody>${linhasPreview}</tbody>
+    </table></div>`;
+
+  document.getElementById('btnRenumAplicar').classList.toggle('hidden', renumeracaoPendente.length===0);
+  document.getElementById('renumResultado').innerHTML = '';
+});
+
+document.getElementById('btnRenumAplicar').addEventListener('click', async ()=>{
+  if(!renumeracaoPendente.length) return;
+  if(!confirm(`Isso vai atualizar o número de ${renumeracaoPendente.length} criança(s) para bater com as etiquetas já impressas. Continuar?`)) return;
+
+  const resultadoDiv = document.getElementById('renumResultado');
+  let ok = 0, falhas = [];
+  for(const item of renumeracaoPendente){
+    try{
+      await apiCall('/child','PUT',{id:item.id, numero:item.numeroNovo});
+      ok++;
+      resultadoDiv.innerHTML = `<div class="ok-box">Atualizando... ${ok}/${renumeracaoPendente.length}</div>`;
+    }catch(e){
+      falhas.push(item.nome+': '+e.message);
+    }
+  }
+
+  resultadoDiv.innerHTML = `<div class="ok-box">✅ ${ok} criança(s) renumeradas com sucesso.</div>` +
+    (falhas.length ? `<div class="alerta-box">⚠️ Falhas: ${falhas.join('; ')}</div>` : '');
+  document.getElementById('btnRenumAplicar').classList.add('hidden');
+  renumeracaoPendente = [];
+  indexCache = await apiCall('/index');
 });
 
 init();
