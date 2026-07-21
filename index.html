@@ -406,6 +406,34 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
     </div>
   </div>
 
+  <div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:16px;">
+    <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
+      <div>
+        <b>Impressão em lote adiantada (sem precisar de check-in)</b>
+        <div class="small-note">Imprime o comprovante de TODAS as crianças cadastradas, pra um dia específico — útil pra adiantar antes do evento.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select id="selDiaImpressaoAdiantada">
+          <option value="1">21/07</option>
+          <option value="2" selected>22/07</option>
+          <option value="3">23/07</option>
+          <option value="4">24/07</option>
+          <option value="5">25/07</option>
+        </select>
+        <button class="primary" id="btnIniciarImpressaoAdiantada" style="background:#2C5F8A;">Iniciar impressão (todas)</button>
+      </div>
+    </div>
+    <div id="filaImpressaoAdiantadaBox" class="hidden" style="margin-top:14px;border-top:1px solid #93C5FD;padding-top:14px;">
+      <div class="small-note" id="filaImpressaoAdiantadaContador"></div>
+      <div style="font-size:18px;font-weight:700;" id="filaImpressaoAdiantadaNome"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="primary" id="btnImprimirFilaAdiantada" style="flex:1;min-width:160px;background:#2C5F8A;">Imprimir agora</button>
+        <button class="secondary" id="btnProximoFilaAdiantada" style="flex:1;min-width:160px;">Próximo</button>
+        <button class="secondary" id="btnFecharFilaAdiantada" style="flex:1;min-width:100px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="stats" id="adminStats"></div>
   <div id="alertaAutorizacaoBox"></div>
   <div class="row">
@@ -1372,6 +1400,50 @@ document.getElementById('btnPularFilaImpressao').addEventListener('click', ()=>{
 document.getElementById('btnFecharFilaImpressao').addEventListener('click', ()=>{
   document.getElementById('filaImpressaoBox').classList.add('hidden');
   atualizarContagemPendentesImpressao();
+});
+
+// ============================================================
+// IMPRESSÃO EM LOTE ADIANTADA — imprime todas as crianças cadastradas
+// para um dia escolhido, sem depender de presença confirmada
+// ============================================================
+let filaImpressaoAdiantada = [];
+let filaImpressaoAdiantadaIndex = 0;
+let diaImpressaoAdiantada = 2;
+
+document.getElementById('btnIniciarImpressaoAdiantada').addEventListener('click', ()=>{
+  diaImpressaoAdiantada = Number(document.getElementById('selDiaImpressaoAdiantada').value);
+  filaImpressaoAdiantada = [...todasCriancas].sort((a,b)=>(a.numero||0)-(b.numero||0));
+  filaImpressaoAdiantadaIndex = 0;
+  if(!filaImpressaoAdiantada.length){ toast('Nenhuma criança cadastrada ainda.'); return; }
+  if(!confirm(`Isso vai imprimir ${filaImpressaoAdiantada.length} comprovante(s), um de cada vez, para o dia ${DATAS_EVENTO[diaImpressaoAdiantada-1]}. Continuar?`)) return;
+  document.getElementById('filaImpressaoAdiantadaBox').classList.remove('hidden');
+  mostrarItemFilaImpressaoAdiantada();
+});
+
+function mostrarItemFilaImpressaoAdiantada(){
+  if(filaImpressaoAdiantadaIndex >= filaImpressaoAdiantada.length){
+    document.getElementById('filaImpressaoAdiantadaBox').classList.add('hidden');
+    toast('Impressão em lote concluída!');
+    return;
+  }
+  const c = filaImpressaoAdiantada[filaImpressaoAdiantadaIndex];
+  document.getElementById('filaImpressaoAdiantadaContador').textContent = `${filaImpressaoAdiantadaIndex+1} de ${filaImpressaoAdiantada.length}`;
+  document.getElementById('filaImpressaoAdiantadaNome').textContent = `#${c.numero} — ${c.nomeCompleto}`;
+}
+
+document.getElementById('btnImprimirFilaAdiantada').addEventListener('click', ()=>{
+  const c = filaImpressaoAdiantada[filaImpressaoAdiantadaIndex];
+  if(!c) return;
+  imprimirComprovanteDe(c, diaImpressaoAdiantada);
+});
+
+document.getElementById('btnProximoFilaAdiantada').addEventListener('click', ()=>{
+  filaImpressaoAdiantadaIndex++;
+  mostrarItemFilaImpressaoAdiantada();
+});
+
+document.getElementById('btnFecharFilaAdiantada').addEventListener('click', ()=>{
+  document.getElementById('filaImpressaoAdiantadaBox').classList.add('hidden');
 });
 
 function renderAdminStats(){
