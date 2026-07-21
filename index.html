@@ -562,6 +562,15 @@ function corPorIdade(idade){
   const faixa = FAIXAS_COR_IDADE.find(f=>idade>=f.min && idade<=f.max);
   return faixa || {nome:'-', hex:'#9CA3AF'};
 }
+// Se a criança tem uma cor manual definida (data de nascimento errada/duvidosa), usa ela.
+// Senão, calcula normalmente pela idade.
+function resolverCorCrianca(c){
+  if(c && c.corManual){
+    const entrada = FAIXAS_COR_IDADE.find(f=>f.nome===c.corManual);
+    return entrada || {nome:c.corManual, hex:'#9CA3AF'};
+  }
+  return corPorIdade(c ? c.idade : null);
+}
 function normalizarBusca(txt){
   return (txt||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
 }
@@ -816,7 +825,7 @@ document.getElementById('searchInput').addEventListener('input', (e)=>{
         <b>#${c.numero}</b> — ${c.nomeCompleto}
         <div class="small-note" style="margin:2px 0 0;">${calcIdade(c.dataNascimento)} anos · resp.: ${c.nomeResponsavel||'-'}</div>
       </span>
-      <span class="badge" style="${badgeStyle(corPorIdade(calcIdade(c.dataNascimento)).nome)}">${corPorIdade(calcIdade(c.dataNascimento)).nome}</span>
+      <span class="badge" style="${badgeStyle(c.corPulseira)}">${c.corPulseira}</span>
     </div>`).join('') || '<div class="small-note" style="padding:10px;">Nenhuma criança encontrada</div>';
   box.querySelectorAll('.search-item').forEach(item=>{
     item.onclick = ()=> selecionarCrianca(item.dataset.id);
@@ -850,7 +859,7 @@ async function selecionarCrianca(id){
     document.getElementById('comprovanteBox').classList.add('hidden');
     document.getElementById('btnConfirmarPresenca').classList.remove('hidden');
     document.getElementById('selNumero').textContent = '#'+c.numero;
-    const corDaCrianca = corPorIdade(calcIdade(c.dataNascimento)).nome;
+    const corDaCrianca = resolverCorCrianca(c).nome;
     document.getElementById('selCorBadge').textContent = corDaCrianca;
     document.getElementById('selCorBadge').style.cssText = 'font-size:14px;padding:6px 16px;'+badgeStyle(corDaCrianca);
     document.getElementById('selNome').textContent = c.nomeCompleto;
@@ -966,7 +975,7 @@ function mostrarComprovante(c){
   document.getElementById('btnConfirmarPresenca').classList.add('hidden');
   document.getElementById('compNumero').textContent = '#'+c.numero;
   document.getElementById('compNome').textContent = c.nomeCompleto;
-  document.getElementById('compData').textContent = dataLabel+' · pulseira '+corPorIdade(calcIdade(c.dataNascimento)).nome;
+  document.getElementById('compData').textContent = dataLabel+' · pulseira '+resolverCorCrianca(c).nome;
   document.getElementById('comprovanteBox').classList.remove('hidden');
   if(CONFIG.autoImprimir) imprimirComprovante();
 }
@@ -979,7 +988,7 @@ function telefoneParaWhatsapp(tel){
 }
 
 function montarMensagemComprovante(c, dataLabel){
-  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${corPorIdade(calcIdade(c.dataNascimento)).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — apresente na hora da retirada.`;
+  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${resolverCorCrianca(c).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — apresente na hora da retirada.`;
 }
 
 function definirTamanhoPaginaImpressao(tamanho){
@@ -999,7 +1008,7 @@ function imprimirComprovanteDe(c, dia){
       <div class="small-note">Comprovante de check-in</div>
       <div class="numero-grande">#${c.numero}</div>
       <div class="nome">${c.nomeCompleto}</div>
-      <div class="small-note">${dataLabel} · pulseira ${corPorIdade(calcIdade(c.dataNascimento)).nome}</div>
+      <div class="small-note">${dataLabel} · pulseira ${resolverCorCrianca(c).nome}</div>
       <p class="small-note" style="margin-top:14px;">Guarde este comprovante e apresente na hora da retirada.</p>
     </div>`;
   definirTamanhoPaginaImpressao('80mm auto');
@@ -1051,8 +1060,8 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
   };
   try{
     const criada = await apiCall('/child','POST',payload);
-    indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, cpf:criada.cpf, dataNascimento:criada.dataNascimento, nomeResponsavel:criada.nomeResponsavel});
-    document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b> — pulseira ${corPorIdade(calcIdade(criada.dataNascimento)).nome}</div>`;
+    indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, cpf:criada.cpf, dataNascimento:criada.dataNascimento, nomeResponsavel:criada.nomeResponsavel, corPulseira:criada.corPulseira});
+    document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b> — pulseira ${criada.corPulseira}</div>`;
     ['cNome','cCpf','cNascimento','cAlergia','cResponsavel','cTelefone','cObs'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('cCorPreview').innerHTML = '—';
   }catch(e){ toast('Erro: '+e.message); }
@@ -1468,7 +1477,7 @@ function filtrarCriancas(){
   const resultado = todasCriancas.filter(c=>{
     if(termo && !(normalizarBusca(c.nomeCompleto).includes(termo) || String(c.numero).includes(termo) || normalizarBusca(c.nomeResponsavel).includes(termo))) return false;
     if(diaFiltro && !(c.presencas && c.presencas[diaFiltro] && c.presencas[diaFiltro].presente)) return false;
-    if(corFiltro && corPorIdade(c.idade).nome!==corFiltro) return false;
+    if(corFiltro && resolverCorCrianca(c).nome!==corFiltro) return false;
     return true;
   });
   resultado.sort((a,b)=>{
@@ -1482,7 +1491,7 @@ function renderAdminTabela(){
   const lista = filtrarCriancas();
   const tbody = document.getElementById('adminTableBody');
   tbody.innerHTML = lista.map(c=>{
-    const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento));
+    const cor = resolverCorCrianca(c);
     const celulasDias = DIAS.map(d=>{
       const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
       const p = diaObj.presente;
@@ -1498,7 +1507,7 @@ function renderAdminTabela(){
       <td><span data-numero-id="${c.id}" data-numero-val="${c.numero}" style="cursor:pointer;font-weight:600;border-bottom:1px dashed var(--cinza-claro);" title="Clique para editar o número">#${c.numero}</span></td>
       <td>${c.nomeCompleto}</td>
       <td>${c.idade!=null?c.idade:calcIdade(c.dataNascimento)}</td>
-      <td><span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span></td>
+      <td><span data-cor-id="${c.id}" data-cor-manual="${c.corManual||''}" class="badge" style="cursor:pointer;${badgeStyle(cor.nome)}" title="Clique para definir a cor manualmente (data de nascimento errada/duvidosa)">${cor.nome}${c.corManual?' ✏️':''}</span></td>
       ${celulasDias}
       <td>${c.nomeResponsavel||'-'}</td>
       <td>${c.telefoneResponsavel||'-'}</td>
@@ -1508,6 +1517,32 @@ function renderAdminTabela(){
       <td><button class="danger" data-del="${c.id}">Excluir</button></td>
     </tr>`;
   }).join('');
+  tbody.querySelectorAll('[data-cor-id]').forEach(span=>{
+    span.onclick = ()=>{
+      const id = span.dataset.corId;
+      const atual = span.dataset.corManual;
+      const select = document.createElement('select');
+      select.style.cssText = 'padding:4px 6px;font-size:12px;';
+      select.innerHTML = `<option value="">Automático (pela idade)</option>` +
+        FAIXAS_COR_IDADE.map(f=>`<option value="${f.nome}" ${atual===f.nome?'selected':''}>${f.nome} (manual)</option>`).join('');
+      span.replaceWith(select);
+      select.focus();
+      let jaSalvou = false;
+      const salvar = async ()=>{
+        if(jaSalvou) return;
+        jaSalvou = true;
+        const novo = select.value;
+        if(novo===atual){ carregarAdmin(); return; }
+        try{
+          await apiCall('/child','PUT',{ id, corManual: novo });
+          toast(novo ? `Pulseira fixada manualmente em ${novo}.` : 'Voltou a calcular a pulseira pela idade.');
+        }catch(e){ toast('Erro: '+e.message); }
+        carregarAdmin();
+      };
+      select.addEventListener('change', salvar);
+      select.addEventListener('blur', salvar);
+    };
+  });
   tbody.querySelectorAll('[data-numero-id]').forEach(span=>{
     span.onclick = ()=>{
       const id = span.dataset.numeroId;
@@ -1581,7 +1616,7 @@ document.getElementById('btnExportCsv').addEventListener('click', ()=>{
   const campos = ['numero','nomeCompleto','idade','corPulseira','cpf','dataNascimento','nomeResponsavel','telefoneResponsavel','alergiaRestricao','participaSemear','observacoes','termoAutorizacao', ...DIAS.flatMap(camposDia)];
   const linhas = [campos.join(';')];
   lista.forEach(c=>{
-    const cor = corPorIdade(c.idade!=null?c.idade:calcIdade(c.dataNascimento)).nome;
+    const cor = resolverCorCrianca(c).nome;
     const colunasDias = DIAS.flatMap(d=>{
       const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
       return [
@@ -1650,14 +1685,8 @@ function montarRelatorioDiaHtml(dados){
   const presentesHojeLista = dados.filter(c=>c.presencas && c.presencas[chaveHoje] && c.presencas[chaveHoje].presente);
   const presentesHoje = presentesHojeLista.length;
 
-  const porFaixa = FAIXAS_COR_IDADE.map(f => presentesHojeLista.filter(c=>{
-    const i = calcIdade(c.dataNascimento);
-    return i!=null && i>=f.min && i<=f.max;
-  }).length);
-  const outrasIdades = presentesHojeLista.filter(c=>{
-    const i = calcIdade(c.dataNascimento);
-    return i==null || !FAIXAS_COR_IDADE.some(f=>i>=f.min && i<=f.max);
-  }).length;
+  const porFaixa = FAIXAS_COR_IDADE.map(f => presentesHojeLista.filter(c=>resolverCorCrianca(c).nome===f.nome).length);
+  const outrasIdades = presentesHojeLista.filter(c=>resolverCorCrianca(c).nome==='-').length;
   const maxIdade = Math.max(1, ...porFaixa, outrasIdades);
 
   const normalizarTexto = (txt) => (txt||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
