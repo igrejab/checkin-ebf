@@ -1154,7 +1154,11 @@ document.getElementById('btnImportar').addEventListener('click', async ()=>{
   if(!csvParseado.length) return;
   try{
     const r = await apiCall('/child/import','POST',{children:csvParseado});
-    toast(`✅ ${r.importadas} novas · ${r.atualizadas} atualizadas`);
+    let msg = `✅ ${r.importadas} novas · ${r.atualizadas} atualizadas`;
+    if(r.ambiguas && r.ambiguas.length){
+      msg += ` · ⚠️ ${r.ambiguas.length} nome(s) já existiam com data de nascimento diferente e foram importados como NOVOS registros (confira duplicidade): ${r.ambiguas.join(', ')}`;
+    }
+    toast(msg);
     indexCache = await apiCall('/index');
     document.getElementById('csvPreview').innerHTML='';
     document.getElementById('csvPaste').value='';
