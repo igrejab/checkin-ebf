@@ -159,8 +159,8 @@ th{background:var(--areia);position:sticky;top:0;}
 .comprovante-ticket .numero-grande{font-size:56px;}
 .comprovante-ticket .nome{font-size:20px;font-weight:700;margin:6px 0;}
 body.imprimindo-comprovante #comprovanteImpressao .comprovante-ticket{
-  max-width:none;width:100%;min-height:100mm;border:none;border-radius:0;padding:0;font-family:'Courier New',monospace;
-  box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  max-width:none;width:100%;border:none;border-radius:0;padding:0;font-family:'Courier New',monospace;
+  box-sizing:border-box;
 }
 body.imprimindo-comprovante #comprovanteImpressao,
 body.imprimindo-comprovante #comprovanteImpressao *{
@@ -969,7 +969,7 @@ function imprimirComprovanteDe(c, dia){
       <div class="small-note">${dataLabel} · pulseira ${corPorIdade(calcIdade(c.dataNascimento)).nome}</div>
       <p class="small-note" style="margin-top:14px;">Guarde este comprovante e apresente na hora da retirada.</p>
     </div>`;
-  definirTamanhoPaginaImpressao('80mm 100mm');
+  definirTamanhoPaginaImpressao('80mm auto');
   document.body.classList.add('imprimindo-comprovante');
   window.print();
 }
