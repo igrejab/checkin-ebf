@@ -365,48 +365,6 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   <h2 style="margin-top:0;">Painel do administrador</h2>
 
   <div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:16px;">
-    <div class="flex-between">
-      <div>
-        <b>Envio de comprovantes por WhatsApp</b>
-        <div class="small-note" id="pendentesComprovanteInfo">Verificando pendências…</div>
-      </div>
-      <button class="primary" id="btnIniciarEnvioComprovantes">Iniciar envio</button>
-    </div>
-    <div id="filaComprovanteBox" class="hidden" style="margin-top:14px;border-top:1px solid #93C5FD;padding-top:14px;">
-      <div class="small-note" id="filaComprovanteContador"></div>
-      <div style="font-size:18px;font-weight:700;" id="filaComprovanteNome"></div>
-      <div class="small-note" id="filaComprovanteTelefone"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="primary" id="btnAbrirWhatsappFila" style="flex:1;min-width:160px;">Abrir WhatsApp</button>
-        <button class="secondary" id="btnConfirmarEnviadoFila" style="flex:1;min-width:160px;">✔️ Confirmar enviado — próximo</button>
-        <button class="secondary" id="btnPularFila" style="flex:1;min-width:120px;">Pular este</button>
-        <button class="secondary" id="btnFecharFila" style="flex:1;min-width:100px;">Fechar</button>
-      </div>
-    </div>
-  </div>
-
-  <div style="background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:14px;margin-bottom:16px;">
-    <div class="flex-between">
-      <div>
-        <b>Impressão de comprovantes pendentes</b>
-        <div class="small-note" id="pendentesImpressaoInfo">Verificando pendências…</div>
-        <div class="small-note">Use isto no computador ligado à impressora — funciona para check-ins feitos em qualquer tablet/celular.</div>
-      </div>
-      <button class="primary" id="btnIniciarImpressaoPendentes" style="background:var(--verde-ok);">Iniciar impressão</button>
-    </div>
-    <div id="filaImpressaoBox" class="hidden" style="margin-top:14px;border-top:1px solid #86EFAC;padding-top:14px;">
-      <div class="small-note" id="filaImpressaoContador"></div>
-      <div style="font-size:18px;font-weight:700;" id="filaImpressaoNome"></div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-        <button class="primary" id="btnImprimirFila" style="flex:1;min-width:160px;background:var(--verde-ok);">Imprimir agora</button>
-        <button class="secondary" id="btnConfirmarImpressoFila" style="flex:1;min-width:160px;">✔️ Já saiu — próximo</button>
-        <button class="secondary" id="btnPularFilaImpressao" style="flex:1;min-width:120px;">Pular este</button>
-        <button class="secondary" id="btnFecharFilaImpressao" style="flex:1;min-width:100px;">Fechar</button>
-      </div>
-    </div>
-  </div>
-
-  <div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:14px;margin-bottom:16px;">
     <div class="flex-between" style="flex-wrap:wrap;gap:10px;">
       <div>
         <b>Impressão em lote adiantada (sem precisar de check-in)</b>
@@ -435,6 +393,7 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   </div>
 
   <div class="stats" id="adminStats"></div>
+  <div id="alertaDuplicadosBox"></div>
   <div id="alertaAutorizacaoBox"></div>
   <div class="row">
     <input type="text" id="adminSearch" placeholder="Buscar por nome, número, responsável…">
@@ -457,8 +416,8 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
     <button class="secondary" id="btnExportCsv">⬇️ Exportar CSV</button>
   </div>
   <div class="small-note" style="margin-bottom:8px;">
-    <span class="presenca-dot pd-sim" style="width:16px;height:16px;line-height:16px;font-size:10px;">✓</span> Presença confirmada &nbsp;·&nbsp;
-    <span class="presenca-dot pd-nao" style="width:16px;height:16px;line-height:16px;font-size:10px;">–</span> Ainda não. Clique no símbolo verde para desfazer.
+    <span class="presenca-dot pd-sim" style="width:16px;height:16px;line-height:16px;font-size:10px;">✓</span> Presença confirmada — clique para desfazer &nbsp;·&nbsp;
+    <span class="presenca-dot pd-nao" style="width:16px;height:16px;line-height:16px;font-size:10px;">–</span> Ainda não — clique para marcar check-in agora
   </div>
   <div class="table-wrap">
     <table>
@@ -516,19 +475,6 @@ body.imprimindo-comprovante #comprovanteImpressao p.small-note{
   <p class="small-note"> </p>
   <div id="listaCoresFixas"></div>
 
-  <h3>Check-in dos pais (QR code)</h3>
-  <p class="small-note">Cartaz pronto pra imprimir e colar na entrada — os pais escaneiam, digitam o nome da criança e confirmam a presença sozinhos, sem precisar do código de acesso da equipe. Funciona junto com a página <code>publico.html</code> (precisa estar publicada no mesmo repositório do GitHub Pages).</p>
-  <button class="secondary" id="btnGerarCartazQr">Gerar cartaz com QR code</button>
-  <div id="cartazQrBox" class="hidden" style="margin-top:14px;">
-    <div id="cartazQrConteudo" style="text-align:center;border:2px dashed var(--azul-noite);border-radius:12px;padding:24px;">
-      <h2 style="margin:0 0 4px;color:var(--azul-noite);">Escola Bíblica de Férias</h2>
-      <p style="margin:0 0 16px;">Escaneie para fazer o check-in da sua criança</p>
-      <img id="cartazQrImagem" src="" alt="QR code" style="width:220px;height:220px;">
-      <p class="small-note" id="cartazQrUrl" style="word-break:break-all;"></p>
-    </div>
-    <button class="primary" id="btnImprimirCartazQr" style="width:100%;margin-top:10px;">Imprimir cartaz</button>
-  </div>
-
   <h3 style="color:var(--vermelho-alerta);">Zona de risco</h3>
   <p class="small-note">Apaga <b>permanentemente</b> todos os cadastros de crianças (presenças, tudo).</p>
   <button class="secondary" id="btnApagarTudo" style="color:var(--vermelho-alerta);border-color:var(--vermelho-alerta);">Apagar todos os cadastros</button>
@@ -555,7 +501,7 @@ const FAIXAS_COR_IDADE = [
   {min:6, max:6, nome:'Laranja', hex:'#E07B39'},
   {min:7, max:7, nome:'Azul', hex:'#2C5F8A'},
   {min:8, max:9, nome:'Amarelo', hex:'#D8A227'},
-  {min:10, max:12, nome:'Cinza', hex:'#6B7280'}
+  {min:10, max:11, nome:'Cinza', hex:'#6B7280'}
 ];
 function corPorIdade(idade){
   if(idade==null) return {nome:'-', hex:'#9CA3AF'};
@@ -980,17 +926,6 @@ function mostrarComprovante(c){
   if(CONFIG.autoImprimir) imprimirComprovante();
 }
 
-function telefoneParaWhatsapp(tel){
-  let digitos = (tel||'').replace(/\D/g,'');
-  if(!digitos) return null;
-  if(!digitos.startsWith('55')) digitos = '55'+digitos;
-  return digitos;
-}
-
-function montarMensagemComprovante(c, dataLabel){
-  return `Comprovante de check-in — Escola Bíblica de Férias\n\nCriança: ${c.nomeCompleto}\nNúmero: #${c.numero}\nPulseira: ${resolverCorCrianca(c).nome}\nDia: ${dataLabel}\n\nGuarde esta mensagem — apresente na hora da retirada.`;
-}
-
 function definirTamanhoPaginaImpressao(tamanho){
   let styleTag = document.getElementById('printPageSizeStyle');
   if(!styleTag){
@@ -1042,7 +977,9 @@ document.getElementById('cNascimento').addEventListener('change', ()=>{
   preview.innerHTML = idade==null ? '—' : `${idade} anos → <span class="badge" style="${badgeStyle(cor.nome)}">${cor.nome}</span>`;
 });
 
-document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
+document.getElementById('btnCadastrar').addEventListener('click', async function(){
+  const btn = this;
+  if(btn.disabled) return;
   const nome = document.getElementById('cNome').value.trim();
   const responsavel = document.getElementById('cResponsavel').value.trim();
   const telefone = document.getElementById('cTelefone').value.trim();
@@ -1058,13 +995,29 @@ document.getElementById('btnCadastrar').addEventListener('click', async ()=>{
     telefoneResponsavel: telefone,
     observacoes: document.getElementById('cObs').value.trim()
   };
+  btn.disabled = true;
   try{
-    const criada = await apiCall('/child','POST',payload);
+    let criada;
+    try{
+      criada = await apiCall('/child','POST',payload);
+    }catch(e){
+      if(e.message.startsWith('DUPLICADO_CONFIRMAR:')){
+        const detalhe = e.message.replace('DUPLICADO_CONFIRMAR:','').trim();
+        if(!confirm(`${detalhe}\n\nCadastrar mesmo assim como uma criança nova?`)){
+          btn.disabled = false;
+          return;
+        }
+        criada = await apiCall('/child','POST',{...payload, forcar:true});
+      } else {
+        throw e;
+      }
+    }
     indexCache.push({id:criada.id, numero:criada.numero, nomeCompleto:criada.nomeCompleto, cpf:criada.cpf, dataNascimento:criada.dataNascimento, nomeResponsavel:criada.nomeResponsavel, corPulseira:criada.corPulseira});
     document.getElementById('cadastroResultado').innerHTML = `<div class="ok-box">✅ Cadastrada! Número atribuído: <b>#${criada.numero}</b> — pulseira ${criada.corPulseira}</div>`;
     ['cNome','cCpf','cNascimento','cAlergia','cResponsavel','cTelefone','cObs'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('cCorPreview').innerHTML = '—';
   }catch(e){ toast('Erro: '+e.message); }
+  finally{ btn.disabled = false; }
 });
 
 const REGRAS_CABECALHO = [
@@ -1210,12 +1163,71 @@ async function carregarAdmin(){
     todasCriancas = await apiCall('/children/all');
     renderAdminStats();
     renderAdminTabela();
+    renderAlertaDuplicados();
     renderAlertaAutorizacao();
-    atualizarContagemPendentesComprovante();
-    atualizarContagemPendentesImpressao();
   }catch(e){ toast('Erro ao carregar painel: '+e.message); }
 }
 document.getElementById('btnRefreshAdmin').addEventListener('click', carregarAdmin);
+
+function renderAlertaDuplicados(){
+  const box = document.getElementById('alertaDuplicadosBox');
+
+  // Agrupa por número E por nome+data de nascimento — os dois jeitos que a duplicação já apareceu.
+  const porNumero = new Map();
+  const porNomeData = new Map();
+  todasCriancas.forEach(c=>{
+    const chaveNumero = c.numero;
+    if(!porNumero.has(chaveNumero)) porNumero.set(chaveNumero, []);
+    porNumero.get(chaveNumero).push(c);
+
+    const chaveNomeData = normalizarBusca(c.nomeCompleto)+'|'+(c.dataNascimento||'');
+    if(!porNomeData.has(chaveNomeData)) porNomeData.set(chaveNomeData, []);
+    porNomeData.get(chaveNomeData).push(c);
+  });
+
+  const gruposDuplicados = new Map(); // id -> grupo (evita repetir o mesmo grupo 2x)
+  [...porNumero.values(), ...porNomeData.values()].forEach(grupo=>{
+    if(grupo.length>1){
+      const chave = grupo.map(c=>c.id).sort().join(',');
+      gruposDuplicados.set(chave, grupo);
+    }
+  });
+
+  if(gruposDuplicados.size===0){
+    box.innerHTML = '';
+    return;
+  }
+
+  const gruposHtml = [...gruposDuplicados.values()].map(grupo=>{
+    const linhas = grupo.map(c=>{
+      const presencas = DIAS.filter(d=>c.presencas && c.presencas['dia'+d] && c.presencas['dia'+d].presente).length;
+      return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FDE68A;">
+        <input type="checkbox" data-dup-del="${c.id}">
+        <span>#${c.numero} — ${c.nomeCompleto} · nasc. ${c.dataNascimento||'-'} · ${presencas} presença(s) registrada(s) · cadastrado em ${c.criadoEm ? new Date(c.criadoEm).toLocaleString('pt-BR') : '-'}</span>
+      </label>`;
+    }).join('');
+    return `<div style="margin-bottom:12px;">${linhas}</div>`;
+  }).join('');
+
+  box.innerHTML = `
+    <div class="alerta-box" style="margin:10px 0;background:#FFFBEB;border-color:#FCD34D;">
+      <div>⚠️ <b>${gruposDuplicados.size} grupo(s) de cadastro duplicado</b> encontrado(s) (mesmo número ou mesmo nome+data de nascimento). Marque as cópias que quer apagar (mantenha pelo menos uma de cada grupo) e confirme.</div>
+      <div style="margin-top:10px;">${gruposHtml}</div>
+      <button class="danger" id="btnApagarDuplicadosSelecionados" style="margin-top:6px;">Apagar selecionados</button>
+    </div>`;
+
+  document.getElementById('btnApagarDuplicadosSelecionados').addEventListener('click', async ()=>{
+    const ids = [...document.querySelectorAll('[data-dup-del]:checked')].map(el=>el.dataset.dupDel);
+    if(!ids.length){ toast('Marque pelo menos um cadastro pra apagar.'); return; }
+    if(!confirm(`Apagar ${ids.length} cadastro(s) duplicado(s)? Essa ação não pode ser desfeita.`)) return;
+    let ok = 0;
+    for(const id of ids){
+      try{ await apiCall('/child?id='+id,'DELETE'); ok++; }catch(e){ /* segue tentando os outros */ }
+    }
+    toast(`✅ ${ok} de ${ids.length} cadastro(s) duplicado(s) apagado(s).`);
+    carregarAdmin();
+  });
+}
 
 function renderAlertaAutorizacao(){
   const box = document.getElementById('alertaAutorizacaoBox');
@@ -1258,158 +1270,6 @@ function renderAlertaAutorizacao(){
   });
 }
 
-// ============================================================
-// FILA DE ENVIO DE COMPROVANTES POR WHATSAPP (em lote, feito com calma)
-// ============================================================
-let filaComprovantes = [];
-let filaComprovantesIndex = 0;
-
-function listaPendentesComprovante(){
-  const chaveDia = 'dia'+diaAtual;
-  return todasCriancas.filter(c=>{
-    const diaObj = c.presencas && c.presencas[chaveDia];
-    if(!diaObj || !diaObj.presente) return false;
-    if(!telefoneParaWhatsapp(c.telefoneResponsavel)) return false;
-    if(diaObj.comprovanteEnviado && diaObj.comprovanteEnviado.enviado) return false;
-    return true;
-  });
-}
-
-function atualizarContagemPendentesComprovante(){
-  const pendentes = listaPendentesComprovante();
-  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
-  document.getElementById('pendentesComprovanteInfo').textContent =
-    `${pendentes.length} comprovante(s) pendente(s) em ${dataLabel} (crianças com presença confirmada, telefone cadastrado, ainda não enviado)`;
-}
-
-document.getElementById('btnIniciarEnvioComprovantes').addEventListener('click', ()=>{
-  filaComprovantes = listaPendentesComprovante();
-  filaComprovantesIndex = 0;
-  if(!filaComprovantes.length){ toast('Nenhum comprovante pendente no momento.'); return; }
-  document.getElementById('filaComprovanteBox').classList.remove('hidden');
-  mostrarItemFilaComprovante();
-});
-
-function mostrarItemFilaComprovante(){
-  if(filaComprovantesIndex >= filaComprovantes.length){
-    document.getElementById('filaComprovanteBox').classList.add('hidden');
-    toast('Envio concluído!');
-    atualizarContagemPendentesComprovante();
-    return;
-  }
-  const c = filaComprovantes[filaComprovantesIndex];
-  document.getElementById('filaComprovanteContador').textContent = `${filaComprovantesIndex+1} de ${filaComprovantes.length}`;
-  document.getElementById('filaComprovanteNome').textContent = `#${c.numero} — ${c.nomeCompleto}`;
-  document.getElementById('filaComprovanteTelefone').textContent = 'Telefone: '+(c.telefoneResponsavel||'-');
-}
-
-document.getElementById('btnAbrirWhatsappFila').addEventListener('click', ()=>{
-  const c = filaComprovantes[filaComprovantesIndex];
-  if(!c) return;
-  const numeroWhats = telefoneParaWhatsapp(c.telefoneResponsavel);
-  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
-  const mensagem = montarMensagemComprovante(c, dataLabel);
-  window.open(`https://wa.me/${numeroWhats}?text=${encodeURIComponent(mensagem)}`, '_blank');
-});
-
-document.getElementById('btnConfirmarEnviadoFila').addEventListener('click', async ()=>{
-  const c = filaComprovantes[filaComprovantesIndex];
-  if(!c) return;
-  const chaveDia = 'dia'+diaAtual;
-  const diaObjAtual = (c.presencas && c.presencas[chaveDia]) || {};
-  try{
-    await apiCall('/child','PUT',{ id:c.id, presencas:{ [chaveDia]: {
-      ...diaObjAtual,
-      comprovanteEnviado: { enviado:true, hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), enviadoPor: CONFIG.operador||'não identificado' }
-    }}});
-    filaComprovantesIndex++;
-    mostrarItemFilaComprovante();
-  }catch(e){ toast('Erro: '+e.message); }
-});
-
-document.getElementById('btnPularFila').addEventListener('click', ()=>{
-  filaComprovantesIndex++;
-  mostrarItemFilaComprovante();
-});
-
-document.getElementById('btnFecharFila').addEventListener('click', ()=>{
-  document.getElementById('filaComprovanteBox').classList.add('hidden');
-  atualizarContagemPendentesComprovante();
-});
-
-// ============================================================
-// FILA DE IMPRESSÃO DE COMPROVANTES PENDENTES (usar no computador ligado à impressora)
-// ============================================================
-let filaImpressao = [];
-let filaImpressaoIndex = 0;
-
-function listaPendentesImpressao(){
-  const chaveDia = 'dia'+diaAtual;
-  return todasCriancas.filter(c=>{
-    const diaObj = c.presencas && c.presencas[chaveDia];
-    if(!diaObj || !diaObj.presente) return false;
-    if(diaObj.impressoEmPapel && diaObj.impressoEmPapel.impresso) return false;
-    return true;
-  });
-}
-
-function atualizarContagemPendentesImpressao(){
-  const pendentes = listaPendentesImpressao();
-  const dataLabel = DATAS_EVENTO[diaAtual-1] || ('Dia '+diaAtual);
-  document.getElementById('pendentesImpressaoInfo').textContent =
-    `${pendentes.length} comprovante(s) pendente(s) em ${dataLabel} (presença confirmada, ainda não impresso)`;
-}
-
-document.getElementById('btnIniciarImpressaoPendentes').addEventListener('click', ()=>{
-  filaImpressao = listaPendentesImpressao();
-  filaImpressaoIndex = 0;
-  if(!filaImpressao.length){ toast('Nenhuma impressão pendente no momento.'); return; }
-  document.getElementById('filaImpressaoBox').classList.remove('hidden');
-  mostrarItemFilaImpressao();
-});
-
-function mostrarItemFilaImpressao(){
-  if(filaImpressaoIndex >= filaImpressao.length){
-    document.getElementById('filaImpressaoBox').classList.add('hidden');
-    toast('Impressão concluída!');
-    atualizarContagemPendentesImpressao();
-    return;
-  }
-  const c = filaImpressao[filaImpressaoIndex];
-  document.getElementById('filaImpressaoContador').textContent = `${filaImpressaoIndex+1} de ${filaImpressao.length}`;
-  document.getElementById('filaImpressaoNome').textContent = `#${c.numero} — ${c.nomeCompleto}`;
-}
-
-document.getElementById('btnImprimirFila').addEventListener('click', ()=>{
-  const c = filaImpressao[filaImpressaoIndex];
-  if(!c) return;
-  imprimirComprovanteDe(c, diaAtual);
-});
-
-document.getElementById('btnConfirmarImpressoFila').addEventListener('click', async ()=>{
-  const c = filaImpressao[filaImpressaoIndex];
-  if(!c) return;
-  const chaveDia = 'dia'+diaAtual;
-  const diaObjAtual = (c.presencas && c.presencas[chaveDia]) || {};
-  try{
-    await apiCall('/child','PUT',{ id:c.id, presencas:{ [chaveDia]: {
-      ...diaObjAtual,
-      impressoEmPapel: { impresso:true, hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), impressoPor: CONFIG.operador||'não identificado' }
-    }}});
-    filaImpressaoIndex++;
-    mostrarItemFilaImpressao();
-  }catch(e){ toast('Erro: '+e.message); }
-});
-
-document.getElementById('btnPularFilaImpressao').addEventListener('click', ()=>{
-  filaImpressaoIndex++;
-  mostrarItemFilaImpressao();
-});
-
-document.getElementById('btnFecharFilaImpressao').addEventListener('click', ()=>{
-  document.getElementById('filaImpressaoBox').classList.add('hidden');
-  atualizarContagemPendentesImpressao();
-});
 
 // ============================================================
 // IMPRESSÃO EM LOTE ADIANTADA — imprime todas as crianças cadastradas
@@ -1495,9 +1355,9 @@ function renderAdminTabela(){
     const celulasDias = DIAS.map(d=>{
       const diaObj = (c.presencas && c.presencas['dia'+d]) || {};
       const p = diaObj.presente;
-      const tituloEntrada = p ? 'Entrada às '+diaObj.hora+' — clique para desfazer' : 'Sem entrada';
+      const tituloEntrada = p ? ('Entrada às '+diaObj.hora+' — clique para desfazer') : 'Sem entrada — clique para marcar check-in';
       return `<td>
-        <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" ${p?`data-undo-id="${c.id}" data-undo-dia="dia${d}" style="cursor:pointer;"`:''} title="${tituloEntrada}">${p?'✓':'–'}</span>
+        <span class="presenca-dot ${p?'pd-sim':'pd-nao'}" data-presenca-id="${c.id}" data-presenca-dia="dia${d}" data-presenca-atual="${p?'1':'0'}" style="cursor:pointer;" title="${tituloEntrada}">${p?'✓':'–'}</span>
       </td>`;
     }).join('');
     const autorizacaoVal = c.termoAutorizacao || '';
@@ -1581,16 +1441,30 @@ function renderAdminTabela(){
       }catch(e){ toast('Erro: '+e.message); }
     };
   });
-  tbody.querySelectorAll('[data-undo-id]').forEach(dot=>{
+  tbody.querySelectorAll('[data-presenca-id]').forEach(dot=>{
     dot.onclick = async ()=>{
-      const id = dot.dataset.undoId, dia = dot.dataset.undoDia;
-      const criancaNome = (todasCriancas.find(c=>c.id===id)||{}).nomeCompleto || '';
-      if(!confirm(`Desfazer a confirmação de presença de ${criancaNome} neste dia?`)) return;
-      try{
-        await apiCall('/child','PUT',{ id, presencas:{ [dia]: {presente:false} } });
-        toast('Confirmação desfeita.');
-        carregarAdmin();
-      }catch(e){ toast('Erro: '+e.message); }
+      const id = dot.dataset.presencaId, dia = dot.dataset.presencaDia;
+      const jaPresente = dot.dataset.presencaAtual === '1';
+      const crianca = todasCriancas.find(c=>c.id===id) || {};
+      const criancaNome = crianca.nomeCompleto || '';
+      if(jaPresente){
+        if(!confirm(`Desfazer a confirmação de presença de ${criancaNome} neste dia?`)) return;
+        try{
+          await apiCall('/child','PUT',{ id, presencas:{ [dia]: {presente:false} } });
+          toast('Confirmação desfeita.');
+          carregarAdmin();
+        }catch(e){ toast('Erro: '+e.message); }
+      } else {
+        try{
+          await apiCall('/child','PUT',{ id, presencas:{ [dia]: {
+            presente:true,
+            hora: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+            confirmadoPor: 'check-in via Painel Admin'
+          } } });
+          toast(`✅ Check-in marcado: ${criancaNome} — #${crianca.numero}`);
+          carregarAdmin();
+        }catch(e){ toast('Erro: '+e.message); }
+      }
     };
   });
   tbody.querySelectorAll('[data-del]').forEach(btn=>{
@@ -1837,21 +1711,6 @@ document.getElementById('btnTestarConexao').addEventListener('click', async ()=>
     if(res.ok){ box.innerHTML = '<div class="ok-box">✅ Conexão OK!</div>'; }
     else{ const e = await res.json(); box.innerHTML = `<div class="alerta-box">❌ ${e.error||res.status}</div>`; }
   }catch(e){ box.innerHTML = `<div class="alerta-box">❌ ${e.message}</div>`; }
-});
-
-document.getElementById('btnGerarCartazQr').addEventListener('click', ()=>{
-  const urlPublica = window.location.href.replace(/[^/]*$/, '') + 'publico.html';
-  const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(urlPublica);
-  document.getElementById('cartazQrImagem').src = qrImgUrl;
-  document.getElementById('cartazQrUrl').textContent = urlPublica;
-  document.getElementById('cartazQrBox').classList.remove('hidden');
-});
-
-document.getElementById('btnImprimirCartazQr').addEventListener('click', ()=>{
-  document.getElementById('comprovanteImpressao').innerHTML = document.getElementById('cartazQrConteudo').outerHTML;
-  definirTamanhoPaginaImpressao(null);
-  document.body.classList.add('imprimindo-comprovante');
-  window.print();
 });
 
 document.getElementById('btnApagarTudo').addEventListener('click', ()=>{
